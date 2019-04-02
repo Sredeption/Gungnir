@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 #include <iostream>
-#include "../src/HashTable.h"
+#include "HashTable.h"
 
 namespace Gungnir {
 

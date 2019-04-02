@@ -3,15 +3,16 @@ project(Gungnir)
 
 set(CMAKE_CXX_STANDARD 14)
 
+include_directories(src)
 
 file(GLOB SRC_FILES
         "src/*.h"
         "src/*.cc"
         )
 
-add_executable(Gungnir ${SRC_FILES})
+add_executable(Gungnir ${SRC_FILES} artifact/ServerMain.cc)
 
-target_link_libraries(Gungnir -lpcrecpp)
+target_link_libraries(Gungnir pcrecpp)
 
 file(GLOB TEST_FILES
         "test/*.h"
@@ -26,4 +27,9 @@ add_executable(GungnirTest
         ${SRC_FILES} ${TEST_FILES})
 
 target_link_libraries(GungnirTest gtest gtest_main)
-target_link_libraries(GungnirTest  -lpcrecpp)
+target_link_libraries(GungnirTest pcrecpp)
+
+add_test(
+        NAME GungnirTest
+        COMMAND GungnirTest
+)
