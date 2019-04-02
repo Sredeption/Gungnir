@@ -174,4 +174,44 @@ int ConcurrentSkipList::findInsertionPoint(Node *currentNode, int currentLayer, 
     }
     return foundLayer;
 }
+
+size_t ConcurrentSkipList::getSize() const {
+    return size.load(std::memory_order_relaxed);
+}
+
+int ConcurrentSkipList::getHeight() const {
+    return head.load(std::memory_order_consume)->getHeight();
+}
+
+int ConcurrentSkipList::maxLayer() const {
+    return getHeight() - 1;
+}
+
+size_t ConcurrentSkipList::incrementSize(int delta) {
+    return size.fetch_add(delta, std::memory_order_relaxed) + delta;
+}
+
+bool ConcurrentSkipList::lockNodesForChange(int nodeHeight, ConcurrentSkipList::ScopedLocker *guards,
+                                            ConcurrentSkipList::Node **predecessors,
+                                            ConcurrentSkipList::Node **successors, bool adding) {
+    Node *predecessor, *successor, *prevPred = nullptr;
+    bool valid = true;
+    for (int layer = 0; valid && layer < nodeHeight; ++layer) {
+        predecessor = predecessors[layer];
+        assert(predecessor != nullptr);
+        successor = successors[layer];
+        if (predecessor != prevPred) {
+            guards[layer] = predecessor->acquireGuard();
+            prevPred = predecessor;
+        }
+        valid = !predecessor->markedForRemoval() &&
+                predecessor->skip(layer) == successor; // check again after locking
+
+        if (adding) { // when adding a node, the successor shouldn't be going away
+            valid = valid && (successor == nullptr || !successor->markedForRemoval());
+        }
+    }
+
+    return valid;
+}
 }
