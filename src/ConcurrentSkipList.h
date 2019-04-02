@@ -128,13 +128,9 @@ private:
         Node *currentNode, int currentLayer, const Key &key,
         Node *predecessors[], Node *successors[]);
 
-    Node *create(uint8_t height, Key key, bool isHead = false) {
-        return new Node(allocator, height, key, isHead);
-    }
+    Node *create(uint8_t height, Key key, bool isHead = false);
 
-    void destroy(Node *node) {
-        delete node;
-    }
+    void destroy(Node *node);
 
     size_t getSize() const;
 
@@ -145,13 +141,7 @@ private:
     size_t incrementSize(int delta);
 
     // Returns the node if found, nullptr otherwise.
-    Node *find(const Key &key) {
-        auto ret = findNode(key);
-        if (ret.second && !ret.first->markedForRemoval()) {
-            return ret.first;
-        }
-        return nullptr;
-    }
+    Node *find(const Key &key);
 
     static bool lockNodesForChange(
         int nodeHeight,
@@ -160,7 +150,7 @@ private:
         Node *successors[MAX_HEIGHT],
         bool adding = true);
 
-    std::pair<Node *, size_t> addOrGetData(Key &key);
+    std::pair<Node *, size_t> addOrGetData(const Key &key);
 
     bool remove(const Key &key);
 
@@ -184,17 +174,75 @@ private:
 
     Node *lowerBound(const Key &data) const;
 
-
     void growHeight(int height);
 
 public:
-
     class Iterator {
+    public:
+        explicit Iterator(Node *node = nullptr) : node(node) {}
 
+        Iterator(Iterator &other);
+
+        Iterator(Iterator &&other) noexcept;
+
+        bool good() const;
+
+        void next();
+
+        bool isDone();
+
+        Key getKey();
+
+    private:
+        Node *node;
     };
 
     class Accessor {
     public:
+        explicit Accessor(ConcurrentSkipList *skipList);
+
+        Accessor(const Accessor &) = delete;
+
+        Accessor &operator=(const Accessor &) = delete;
+
+        bool empty() const;
+
+        size_t size() const;
+
+        // returns end() if the value is not in the list, otherwise returns an
+        // iterator pointing to the data, and it's guaranteed that the data is valid
+        // as far as the Accessor is hold.
+        Iterator find(const Key &value);
+
+
+        Iterator begin() const;
+
+        Iterator end() const;
+
+        Iterator insert(Key data);
+
+        size_t erase(const Key &data);
+
+        Iterator lowerBound(const Key &data) const;
+
+        size_t height() const;
+
+        const Key *first() const;
+
+        const Key *last() const;
+
+        bool popBack();
+
+        std::pair<Key *, bool> addOrGetData(const Key &data);
+
+        bool contains(const Key &key) const;
+
+        bool add(const Key &key);
+
+        bool remove(const Key &key);
+
+    private:
+        ConcurrentSkipList *skipList;
 
     };
 
