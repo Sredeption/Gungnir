@@ -5,6 +5,10 @@
 #include <string>
 
 namespace Gungnir {
+// htons, ntohs cause warnings
+#define HTONS(x) \
+    static_cast<uint16_t>((((x) >> 8) & 0xff) | (((x) & 0xff) << 8))
+#define NTOHS HTONS
 
 std::string format(const char *format, ...)
 __attribute__((format(printf, 1, 2)));

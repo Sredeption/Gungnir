@@ -12,8 +12,8 @@
 
 namespace Gungnir {
 Dispatch::Dispatch(bool hasDedicatedThread)
-    : ownerId(ThreadId::get()), hasDedicatedThread(hasDedicatedThread), pollers(), files(), epollFd(-1), epollThread()
-      , exitPipeFds(), readyFd(-1), readyEvents(0u), fileInvocationSerial(0) {
+    : ownerId(ThreadId::get()), mutex("Dispatch"), hasDedicatedThread(hasDedicatedThread), pollers(), files(), epollFd(
+    -1), epollThread(), exitPipeFds(), readyFd(-1), readyEvents(0u), fileInvocationSerial(0) {
 
 
 }
@@ -65,7 +65,16 @@ bool Dispatch::isDispatchThread() {
 int Dispatch::poll() {
     assert(isDispatchThread());
     int result = 0;
+    if (lockNeeded.load() != 0) {
+        // Someone wants us locked. Indicate that we are locked,
+        // then wait for the lock to be released.
+        locked.store(1, std::memory_order_release);
+        while (lockNeeded.load(std::memory_order_acquire) != 0) {
+            // Empty loop body.
+        }
+        locked.store(std::memory_order_release);
 
+    }
     for (auto &poller : pollers) {
         result += poller->poll();
     }
@@ -261,6 +270,108 @@ bool Dispatch::fdIsReady(int fd) {
                          "select error on Dispatch's exitPipe", errno);
     }
     return r > 0;
+}
+
+Dispatch::File::~File() {
+    if (owner == nullptr) {
+        // Dispatch object has already been deleted; don't do anything.
+        return;
+    }
+
+    if (active) {
+        // Note: don't worry about errors here. For example, it's
+        // possible that the file was closed before this destructor
+        // was invoked, in which case EBADF will occur.
+        epoll_ctl(owner->epollFd, EPOLL_CTL_DEL, fd, nullptr);
+    }
+    owner->files[fd] = nullptr;
+}
+
+void Dispatch::File::setEvents(uint32_t events) {
+    if (owner == nullptr) {
+        // Dispatch object has already been deleted; don't do anything.
+        return;
+    }
+
+    epoll_event epollEvent{};
+    // The following statement is not needed, but without it valgrind
+    // will generate false errors about uninitialized data.
+    epollEvent.data.u64 = 0;
+    this->events = events;
+    if (invocationId != 0) {
+        // Don't communicate anything to epoll while a call to
+        // operator() is in progress (don't want another instance of
+        // the handler to be invoked until the first completes): we
+        // will get another chance to update epoll state when the handler
+        // completes.
+        return;
+    }
+    epollEvent.events = 0;
+    if (events & READABLE) {
+        epollEvent.events |= EPOLLIN | EPOLLONESHOT;
+    }
+    if (events & WRITABLE) {
+        epollEvent.events |= EPOLLOUT | EPOLLONESHOT;
+    }
+    epollEvent.data.fd = fd;
+    if (epoll_ctl(owner->epollFd,
+                  active ? EPOLL_CTL_MOD : EPOLL_CTL_ADD, fd, &epollEvent) != 0) {
+        throw FatalError(HERE, format("Dispatch couldn't set epoll event "
+                                      "for fd %d", fd), errno);
+    }
+    active = true;
+}
+
+/**
+ * A thread-local flag that says whether this thread is currently executing
+ * within a Dispatch::Lock. It is used to allow recursive acquisition of the
+ * dispatch lock (example where this is needed: a worker thread on a server
+ * sends an RPC, which acquires the dispatch lock; then it invokes the
+ * transport's \c sendRequest method, which attempts to reset the response
+ * buffer; this causes chunk-specific deleters to be invoked, such as
+ * UdpDriver::release; however, these need to acquire the dispatch lock, since
+ * they can also be invoked by worker threads at other times when the lock is
+ * not already held).
+ */
+static __thread bool thisThreadHasDispatchLock = false;
+
+Dispatch::Lock::Lock(Dispatch *dispatch)
+    : dispatch(dispatch), lock() {
+    if (dispatch->isDispatchThread() || thisThreadHasDispatchLock) {
+        return;
+    }
+
+    thisThreadHasDispatchLock = true;
+    lock = std::make_unique<std::lock_guard<SpinLock>>(dispatch->mutex);
+
+    // It's possible that when we arrive here the dispatch thread hasn't
+    // finished unlocking itself after the previous lock-unlock cycle.
+    // We need to make sure for this to complete; otherwise we could
+    // get confused below and return before the dispatch thread has
+    // re-locked itself.
+    while (dispatch->locked.load(std::memory_order_acquire) != 0) {
+        // Empty loop.
+    }
+
+    // The following statements ensure that the preceding load completes
+    // before the following store (reordering could cause deadlock).
+    dispatch->lockNeeded.store(1, std::memory_order_release);
+    while (dispatch->locked.load(std::memory_order_acquire) == 0) {
+        // Empty loop: spin-wait for the dispatch thread to lock itself.
+    }
+}
+
+Dispatch::Lock::~Lock() {
+    if (!lock) {
+        // We never acquired the mutex; this means we're running in the
+        // dispatch thread or this was a recursive lock acquisition, so
+        // there's nothing for us to do here.
+        return;
+    }
+    assert(thisThreadHasDispatchLock);
+
+    dispatch->lockNeeded.store(0, std::memory_order_release);
+    thisThreadHasDispatchLock = false;
 }
 
 }

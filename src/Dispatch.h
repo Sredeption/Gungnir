@@ -6,6 +6,7 @@
 #include <thread>
 #include <atomic>
 #include "Exception.h"
+#include "SpinLock.h"
 
 namespace Gungnir {
 
@@ -133,6 +134,34 @@ public:
 
     };
 
+    /**
+     * Lock objects are used to synchronize between the dispatch thread and
+     * other threads.  As long as a Lock object exists the following guarantees
+     * are in effect: either (a) the thread is the dispatch thread or (b) no
+     * other non-dispatch thread has a Lock object and the dispatch thread is
+     * in an idle state waiting for the Lock to be destroyed.  Although Locks
+     * are intended primarily for use in non-dispatch threads, they can also be
+     * used in the dispatch thread (e.g., if you can't tell which thread will
+     * run a particular piece of code). Locks may not be used recursively: a
+     * single thread can only create a single Lock object at a time.
+     */
+    class Lock {
+    public:
+        explicit Lock(Dispatch *dispatch);
+
+        ~Lock();
+
+    private:
+        /// The Dispatch object associated with this Lock.
+        Dispatch *dispatch;
+
+        /// Used to lock Dispatch::mutex, but only if the Lock object
+        /// is constructed in a thread other than the dispatch thread
+        /// (no mutual exclusion is needed if the Lock is created in
+        /// the dispatch thread).
+        std::unique_ptr<std::lock_guard<SpinLock>> lock;
+    };
+
 private:
 
     static void epollThreadMain(Dispatch *owner);
@@ -140,6 +169,16 @@ private:
     static bool fdIsReady(int fd);
 
     int ownerId;
+    // Used to make sure that only one thread at a time attempts to lock
+    // the dispatcher.
+    SpinLock mutex;
+
+    // Nonzero means there is a (non-dispatch) thread trying to lock the
+    // dispatcher.
+    std::atomic<int> lockNeeded;
+
+    // Nonzero means the dispatch thread is locked.
+    std::atomic<int> locked;
 
     bool hasDedicatedThread;
     // Keeps track of all of the pollers currently defined.  We don't
@@ -183,57 +222,7 @@ private:
 
 };
 
-Dispatch::File::~File() {
-    if (owner == nullptr) {
-        // Dispatch object has already been deleted; don't do anything.
-        return;
-    }
-
-    if (active) {
-        // Note: don't worry about errors here. For example, it's
-        // possible that the file was closed before this destructor
-        // was invoked, in which case EBADF will occur.
-        epoll_ctl(owner->epollFd, EPOLL_CTL_DEL, fd, nullptr);
-    }
-    owner->files[fd] = nullptr;
 }
 
-void Dispatch::File::setEvents(uint32_t events) {
-    if (owner == nullptr) {
-        // Dispatch object has already been deleted; don't do anything.
-        return;
-    }
-
-    epoll_event epollEvent{};
-    // The following statement is not needed, but without it valgrind
-    // will generate false errors about uninitialized data.
-    epollEvent.data.u64 = 0;
-    this->events = events;
-    if (invocationId != 0) {
-        // Don't communicate anything to epoll while a call to
-        // operator() is in progress (don't want another instance of
-        // the handler to be invoked until the first completes): we
-        // will get another chance to update epoll state when the handler
-        // completes.
-        return;
-    }
-    epollEvent.events = 0;
-    if (events & READABLE) {
-        epollEvent.events |= EPOLLIN | EPOLLONESHOT;
-    }
-    if (events & WRITABLE) {
-        epollEvent.events |= EPOLLOUT | EPOLLONESHOT;
-    }
-    epollEvent.data.fd = fd;
-    if (epoll_ctl(owner->epollFd,
-                  active ? EPOLL_CTL_MOD : EPOLL_CTL_ADD, fd, &epollEvent) != 0) {
-        throw FatalError(HERE, format("Dispatch couldn't set epoll event "
-                                      "for fd %d", fd), errno);
-    }
-    active = true;
-}
-
-
-}
 
 #endif //GUNGNIR_DISPATCH_H

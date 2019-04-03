@@ -54,6 +54,8 @@ public:
 
     };
 
+    static const uint32_t MAX_RPC_LEN = ((1 << 23) + 200);
+
     /**
      * An RPC request that has been received and is either being serviced or
      * waiting for service.
