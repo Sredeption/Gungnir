@@ -142,11 +142,11 @@ double ConcurrentSkipList::RandomHeight::randomProb() {
 }
 
 bool ConcurrentSkipList::greater(const Key &data, const Node *node) {
-    return node;
+    return node && data.value() > node->getKey().value();
 }
 
 bool ConcurrentSkipList::less(const Key &data, const Node *node) {
-    return node == nullptr;
+    return node == nullptr || data.value() < node->getKey().value();
 }
 
 int ConcurrentSkipList::findInsertionPoint(Node *currentNode, int currentLayer, const Key &key,
@@ -455,6 +455,11 @@ void ConcurrentSkipList::growHeight(int height) {
 }
 
 
+ConcurrentSkipList::ConcurrentSkipList(int height)
+    : head(create(height, Key(), true)), size(0) {
+
+}
+
 ConcurrentSkipList::Iterator::Iterator(Iterator &other) {
     node = other.node;
 }
@@ -477,6 +482,10 @@ bool ConcurrentSkipList::Iterator::isDone() {
 
 Key ConcurrentSkipList::Iterator::getKey() {
     return node->getKey();
+}
+
+bool ConcurrentSkipList::Iterator::operator==(const Iterator& that) const {
+    return this->node == that.node;
 }
 
 // Unsafe initializer: the caller assumes the responsibility to keep

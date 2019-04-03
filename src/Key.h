@@ -16,7 +16,7 @@ public:
 
     Key(uint64_t key);
 
-    uint64_t value();
+    uint64_t value() const;
 
 private:
     uint64_t key;

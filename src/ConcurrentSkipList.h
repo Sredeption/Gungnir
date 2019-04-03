@@ -177,6 +177,9 @@ private:
     void growHeight(int height);
 
 public:
+
+    explicit ConcurrentSkipList(int height = 16);
+
     class Iterator {
     public:
         explicit Iterator(Node *node = nullptr) : node(node) {}
@@ -192,6 +195,8 @@ public:
         bool isDone();
 
         Key getKey();
+
+        bool operator==(const Iterator &that) const;
 
     private:
         Node *node;
@@ -240,6 +245,7 @@ public:
         bool add(const Key &key);
 
         bool remove(const Key &key);
+
 
     private:
         ConcurrentSkipList *skipList;
