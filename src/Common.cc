@@ -1,6 +1,8 @@
 #include <cstdarg>
 #include <cassert>
 #include <cxxabi.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 #include "Common.h"
 #include "CodeLocation.h"
@@ -60,4 +62,51 @@ std::string demangle(const char *name) {
     return ret;
 }
 
+
+uint64_t generateRandom() {
+    // Internal scratch state used by random_r 128 is the same size as
+    // initstate() uses for regular random(), see manpages for details.
+    // statebuf is malloc'ed and this memory is leaked, it could be a __thread
+    // buffer, but after running into linker issues with large thread local
+    // storage buffers, we thought better.
+    enum {
+        STATE_BYTES = 128
+    };
+    static __thread char *statebuf;
+    // random_r's state, must be handed to each call, and seems to refer to
+    // statebuf in some undocumented way.
+    static __thread random_data buf;
+
+    if (statebuf == nullptr) {
+        int fd = open("/dev/urandom", O_RDONLY);
+        if (fd < 0)
+            throw FatalError(HERE, "Couldn't open /dev/urandom", errno);
+        unsigned int seed;
+        ssize_t bytesRead = read(fd, &seed, sizeof(seed));
+        close(fd);
+        if (bytesRead != sizeof(seed)) {
+            assert(bytesRead == sizeof(seed));
+        }
+        statebuf = static_cast<char *>(std::malloc(STATE_BYTES));
+        initstate_r(seed, statebuf, STATE_BYTES, &buf);
+    }
+
+    // Each call to random returns 31 bits of randomness,
+    // so we need three to get 64 bits of randomness.
+    static_assert(RAND_MAX >= (1 << 31), "RAND_MAX too small");
+    int32_t lo, mid, hi;
+    random_r(&buf, &lo);
+    random_r(&buf, &mid);
+    random_r(&buf, &hi);
+    uint64_t r = (((uint64_t(hi) & 0x7FFFFFFF) << 33) | // NOLINT
+                  ((uint64_t(mid) & 0x7FFFFFFF) << 2) | // NOLINT
+                  (uint64_t(lo) & 0x00000003)); // NOLINT
+    return r;
 }
+
+uint32_t randomNumberGenerator(uint32_t n) {
+    return static_cast<uint32_t>(generateRandom()) % n;
+}
+
+}
+

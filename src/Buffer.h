@@ -62,6 +62,14 @@ public:
 
     uint32_t copy(uint32_t offset, uint32_t length, void *dest);
 
+    template<typename T, typename... Args>
+    inline T*
+    emplaceAppend(Args&&... args) {
+        void* allocation = alloc(sizeof(T));
+        new(allocation) T(static_cast<Args&&>(args)...);
+        return static_cast<T*>(allocation);
+    }
+
     template<typename T>
     inline T *
     getOffset(uint32_t offset) {
@@ -170,7 +178,7 @@ private:
 
     std::vector<char *> allocations;
 
-    void *getNewAllocation(size_t numBytes);
+    void *getNewAllocation(size_t numBytes, uint32_t* bytesAllocated);
 
     void resetInternal(bool isReset);
 };

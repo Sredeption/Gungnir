@@ -74,6 +74,11 @@ struct FatalError : public Exception {
         : Exception(where, msg, errNo) {}
 };
 
+struct RpcCanceledException : public Exception {
+    explicit RpcCanceledException(const CodeLocation &where)
+        : Exception(where) {}
+};
+
 }
 
 #endif //GUNGNIR_EXCEPTION_H

@@ -24,7 +24,8 @@ Buffer::~Buffer() {
 }
 
 void *Buffer::alloc(size_t numBytes) {
-    auto *chunk = new Chunk(getNewAllocation(numBytes), numBytes);
+    uint32_t byteAllocated;
+    auto *chunk = new Chunk(getNewAllocation(numBytes, &byteAllocated), numBytes);
 
     totalLength += numBytes;
     if (lastChunk != nullptr) {
@@ -235,14 +236,16 @@ void *Buffer::getRange(uint32_t offset, uint32_t length) {
     }
 
     // The desired range is not contiguous. Copy it.
-    char *data = static_cast<char *>(getNewAllocation(length));
+    uint32_t byteAllocated;
+    char *data = static_cast<char *>(getNewAllocation(length, &byteAllocated));
     copy(offset, length, data);
     return data;
 }
 
-void *Buffer::getNewAllocation(size_t numBytes) {
+void *Buffer::getNewAllocation(size_t numBytes, uint32_t *bytesAllocated) {
     char *data = new char[numBytes];
     allocations.push_back(data);
+    *bytesAllocated = numBytes;
     return data;
 }
 

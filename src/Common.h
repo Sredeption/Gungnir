@@ -17,6 +17,10 @@ std::string vformat(const char *format, va_list ap)
 __attribute__((format(printf, 1, 0)));
 
 std::string demangle(const char *name);
+
+uint64_t generateRandom();
+
+uint32_t randomNumberGenerator(uint32_t n);
 }
 
 
