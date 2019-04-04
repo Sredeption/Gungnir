@@ -9,7 +9,7 @@ namespace Gungnir {
 
 class RpcWrapper : public Transport::RpcNotifier {
 public:
-    explicit RpcWrapper(uint32_t responseHeaderLength,
+    explicit RpcWrapper(Context *context, Transport::SessionRef session, uint32_t responseHeaderLength,
                         Buffer *response = nullptr);
 
     ~RpcWrapper() override;
@@ -32,7 +32,7 @@ protected:
         CANCELED,                   // The RPC has been canceled, so it will never complete.
         RETRY                       // The RPC needs to be retried at the time given by retryTime.
     };
-
+    Context *context;
     Buffer request;
     Buffer *response;
 

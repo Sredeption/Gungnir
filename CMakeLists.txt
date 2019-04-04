@@ -8,18 +8,23 @@ include_directories(src)
 include_directories(cxxopts/include)
 
 set(LIBS pcrecpp pthread)
+set(COMPILE_OPTION -Werror -Wall
+        -Wno-non-template-friend -Woverloaded-virtual
+        -Wcast-qual -Wcast-align)
 
 file(GLOB SRC_FILES
         "src/*.h"
         "src/*.cc"
         )
 
-add_executable(Gungnir ${SRC_FILES} artifact/ServerMain.cc)
+add_executable(gungnir ${SRC_FILES} artifact/ServerMain.cc)
 
-target_link_libraries(Gungnir ${LIBS})
-target_compile_options(Gungnir PRIVATE -Werror -Wall
-        -Wno-non-template-friend -Woverloaded-virtual
-        -Wcast-qual -Wcast-align)
+target_link_libraries(gungnir ${LIBS})
+target_compile_options(gungnir PRIVATE ${COMPILE_OPTION})
+
+add_executable(benchmark ${SRC_FILES} artifact/Benchmark.cc)
+target_link_libraries(benchmark  ${LIBS})
+target_compile_options(benchmark   PRIVATE ${COMPILE_OPTION})
 
 file(GLOB TEST_FILES
         "test/*.h"
@@ -30,13 +35,13 @@ add_subdirectory(googletest)
 enable_testing()
 include_directories(${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR})
 
-add_executable(GungnirTest
+add_executable(gungnirTest
         ${SRC_FILES} ${TEST_FILES})
 
-target_link_libraries(GungnirTest gtest gtest_main)
-target_link_libraries(GungnirTest ${LIBS})
+target_link_libraries(gungnirTest gtest gtest_main)
+target_link_libraries(gungnirTest ${LIBS})
 
 add_test(
-        NAME GungnirTest
-        COMMAND GungnirTest
+        NAME gungnirTest
+        COMMAND gungnirTest
 )

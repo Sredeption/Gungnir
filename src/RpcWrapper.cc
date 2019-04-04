@@ -1,3 +1,5 @@
+#include <utility>
+
 #include "RpcWrapper.h"
 #include "Cycles.h"
 #include "Dispatch.h"
@@ -6,9 +8,9 @@
 
 namespace Gungnir {
 
-RpcWrapper::RpcWrapper(uint32_t responseHeaderLength, Buffer *response)
-    : request(), response(response), defaultResponse(), state(NOT_STARTED), session(nullptr), retryTime(0)
-      , responseHeaderLength(responseHeaderLength), responseHeader(nullptr) {
+RpcWrapper::RpcWrapper(Context *context, Transport::SessionRef session, uint32_t responseHeaderLength, Buffer *response)
+    : context(context), request(), response(response), defaultResponse(), state(NOT_STARTED)
+      , session(std::move(session)), retryTime(0), responseHeaderLength(responseHeaderLength), responseHeader(nullptr) {
     if (response == nullptr) {
         defaultResponse = std::make_unique<Buffer>();
         this->response = defaultResponse.get();
@@ -148,6 +150,8 @@ void RpcWrapper::send() {
     state.store(IN_PROGRESS, std::memory_order_relaxed);
     if (session)
         session->sendRequest(&request, response, this);
+    else
+        throw FatalError(HERE, "No available session");
 }
 
 void RpcWrapper::simpleWait(Context *context) {

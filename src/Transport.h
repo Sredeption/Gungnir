@@ -257,8 +257,7 @@ public:
      * \throw TransportException
      *      The transport can't open a session for \a serviceLocator.
      */
-    virtual SessionRef getSession(const std::string &serviceLocator,
-                                  uint32_t timeoutMs) = 0;
+    virtual SessionRef getSession(const std::string &serviceLocator) = 0;
 
     /**
      * Return the ServiceLocator for this Transport. If the transport

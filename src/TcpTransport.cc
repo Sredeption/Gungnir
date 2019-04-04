@@ -84,8 +84,8 @@ TcpTransport::~TcpTransport() {
     }
 }
 
-Transport::SessionRef TcpTransport::getSession(const std::string &serviceLocator, uint32_t timeoutMs) {
-    return std::make_shared<TcpSession>(this, serviceLocator, timeoutMs);
+Transport::SessionRef TcpTransport::getSession(const std::string &serviceLocator) {
+    return std::make_shared<TcpSession>(this, serviceLocator);
 }
 
 std::string TcpTransport::getServiceLocator() {
@@ -468,7 +468,7 @@ void TcpTransport::ClientSocketHandler::handleFileEvent(uint32_t events) {
     }
 }
 
-TcpTransport::TcpSession::TcpSession(TcpTransport *transport, const std::string &serviceLocator, uint32_t timeoutMs)
+TcpTransport::TcpSession::TcpSession(TcpTransport *transport, const std::string &serviceLocator)
     : Session(serviceLocator)
       , transport(transport), address(serviceLocator), fd(-1), serial(1), rpcsWaitingToSend(), bytesLeftToSend(0)
       , rpcsWaitingForResponse(), current(nullptr), message(), clientIoHandler() {

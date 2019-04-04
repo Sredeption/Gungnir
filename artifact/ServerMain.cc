@@ -1,4 +1,5 @@
 #include <Exception.h>
+#include <Server.h>
 #include "Context.h"
 #include "Logger.h"
 #include "OptionConfig.h"
@@ -16,5 +17,8 @@ int main(int argc, char *argv[]) {
     Logger::log("server listen to %s", optionConfig.serverLocator.c_str());
 
     Context context(optionConfig, true);
+
+    Server server(&context);
+    server.run();
     return 0;
 }

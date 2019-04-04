@@ -12,6 +12,13 @@ typedef enum Status {
     STATUS_INTERNAL_ERROR = 5
 } Status;
 
+enum Opcode {
+    GET = 1,
+    PUT = 2,
+    DELETE = 3,
+    SCAN = 4,
+};
+
 class WireFormat {
 public:
     /**
@@ -36,6 +43,18 @@ public:
         uint32_t maxDelayMicros;
         uint32_t messageLength;
     } __attribute__((packed));
+
+    struct Get {
+        static const Opcode opcode = GET;
+        struct Request {
+            RequestCommon common;
+            uint64_t key;
+        } __attribute__((packed));
+        struct Response {
+            ResponseCommon common;
+            uint32_t length;              // Length of the object's value in bytes.
+        } __attribute__((packed));
+    };
 
 };
 

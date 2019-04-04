@@ -18,10 +18,9 @@ class TcpTransport : public Transport {
 public:
     explicit TcpTransport(Context *context, const std::string &serviceLocator);
 
-    ~TcpTransport();
+    ~TcpTransport() override;
 
-    SessionRef getSession(const std::string &serviceLocator,
-                          uint32_t timeoutMs = 0);
+    SessionRef getSession(const std::string &serviceLocator) override;
 
     std::string getServiceLocator() override;
 
@@ -207,9 +206,7 @@ private:
         friend class ClientSocketHandler;
 
     public:
-        explicit TcpSession(TcpTransport *transport,
-                            const std::string &serviceLocator,
-                            uint32_t timeoutMs = 0);
+        explicit TcpSession(TcpTransport *transport, const std::string &serviceLocator);
 
         ~TcpSession() override;
 
