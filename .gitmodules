@@ -2,3 +2,7 @@
 	path = googletest
 	url = https://github.com/Sredeption/googletest.git
 	branch = master
+[submodule "cxxopts"]
+	path = cxxopts
+	url = https://github.com/Sredeption/cxxopts.git
+	branch = master

@@ -9,9 +9,9 @@ namespace Gungnir {
 class Logger {
 
 public:
-    static void log(
-        const CodeLocation &where,
-        const char *fmt, ...);
+    static void log(const CodeLocation &where, const char *fmt, ...);
+
+    static void log(const char *fmt, ...);
 
 };
 

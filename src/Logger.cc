@@ -12,4 +12,12 @@ void Logger::log(const CodeLocation &where, const char *fmt, ...) {
     va_end(ap);
 }
 
+void Logger::log(const char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    vprintf(fmt, ap);
+    printf("\n");
+    va_end(ap);
+}
+
 }
