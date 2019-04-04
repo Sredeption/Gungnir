@@ -21,6 +21,8 @@ public:
 
     int poll();
 
+    void run() __attribute__ ((noreturn));
+
     /**
      * A Poller object is invoked once each time through the dispatcher's
      * inner polling loop.

@@ -119,6 +119,12 @@ int Dispatch::poll() {
     return result;
 }
 
+void Dispatch::run() {
+    while (true) {
+        poll();
+    }
+}
+
 Dispatch::Poller::Poller(Dispatch *dispatch, std::string pollerName)
     : owner(dispatch), pollerName(std::move(pollerName)), slot(static_cast<int>(owner->pollers.size())) {
 
@@ -271,6 +277,7 @@ bool Dispatch::fdIsReady(int fd) {
     }
     return r > 0;
 }
+
 
 Dispatch::File::~File() {
     if (owner == nullptr) {

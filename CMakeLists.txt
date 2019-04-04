@@ -1,7 +1,8 @@
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.1)
 project(Gungnir)
 
 set(CMAKE_CXX_STANDARD 14)
+
 
 include_directories(src)
 include_directories(cxxopts/include)
@@ -16,6 +17,9 @@ file(GLOB SRC_FILES
 add_executable(Gungnir ${SRC_FILES} artifact/ServerMain.cc)
 
 target_link_libraries(Gungnir ${LIBS})
+target_compile_options(Gungnir PRIVATE -Werror -Wall
+        -Wno-non-template-friend -Woverloaded-virtual
+        -Wcast-qual -Wcast-align)
 
 file(GLOB TEST_FILES
         "test/*.h"

@@ -5,7 +5,7 @@ namespace Gungnir {
 
 ConcurrentSkipList::Node::Node(std::allocator<std::atomic<ConcurrentSkipList::Node *>> &allocator, uint8_t height,
                                Key key, bool isHead)
-    : allocator(allocator), flags(), height(height), key(std::forward<Key>(key)), spinLock("SkipList::Node") {
+    : allocator(allocator), key(std::forward<Key>(key)), value(), flags(), height(height), spinLock("SkipList::Node") {
     setFlags(0);
     if (isHead) {
         setIsHeadNode();
@@ -484,7 +484,7 @@ Key ConcurrentSkipList::Iterator::getKey() {
     return node->getKey();
 }
 
-bool ConcurrentSkipList::Iterator::operator==(const Iterator& that) const {
+bool ConcurrentSkipList::Iterator::operator==(const Iterator &that) const {
     return this->node == that.node;
 }
 
