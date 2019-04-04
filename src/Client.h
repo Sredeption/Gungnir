@@ -13,7 +13,7 @@ namespace Gungnir {
 class Client {
 
 public:
-    explicit Client (Context *context, const std::string &connectLocator);
+    explicit Client(Context *context, const std::string &connectLocator);
 
     void get(uint64_t key, Buffer *value, bool *objectExists = nullptr);
 
@@ -23,14 +23,15 @@ public:
 
     Iterator scan(uint64_t startKey, uint64_t lastKey);
 
+    Context *context;
+
     Transport::SessionRef session;
 
-    Context *context;
 };
 
 class GetRpc : public RpcWrapper {
 public:
-    GetRpc(Client  *client, uint64_t key, Buffer *value);
+    GetRpc(Client *client, uint64_t key, Buffer *value);
 
     void wait(bool *objectExists);
 };

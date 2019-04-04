@@ -12,8 +12,9 @@
 
 namespace Gungnir {
 Dispatch::Dispatch(bool hasDedicatedThread)
-    : ownerId(ThreadId::get()), mutex("Dispatch"), hasDedicatedThread(hasDedicatedThread), pollers(), files(), epollFd(
-    -1), epollThread(), exitPipeFds(), readyFd(-1), readyEvents(0u), fileInvocationSerial(0) {
+    : ownerId(ThreadId::get()), mutex("Dispatch"), lockNeeded(0), locked(0), hasDedicatedThread(hasDedicatedThread)
+      , pollers(), files(), epollFd(-1), epollThread(), exitPipeFds(), readyFd(-1), readyEvents(0u)
+      , fileInvocationSerial(0) {
 
 
 }

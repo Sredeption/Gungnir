@@ -21,6 +21,8 @@ namespace Gungnir {
 TcpTransport::TcpTransport(Context *context, const std::string &serviceLocator)
     : context(context), locatorString(serviceLocator), listenSocket(-1), acceptHandler(), sockets(), nextSocketId(100)
       , serverRpcPool(), clientRpcPool() {
+    if (serviceLocator.empty())
+        return;
 
     IpAddress address(serviceLocator);
     listenSocket = socket(PF_INET, SOCK_STREAM, 0);
@@ -225,7 +227,9 @@ void TcpTransport::closeSocket(int fd) {
 
 ssize_t TcpTransport::recvCarefully(int fd, void *buffer, size_t length) {
     ssize_t actual = recv(fd, buffer, length, MSG_DONTWAIT);
-
+    if (actual > 0) {
+        return actual;
+    }
     if (actual == 0) {
         throw TransportException(HERE, "session closed by peer");
     }

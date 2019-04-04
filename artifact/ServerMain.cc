@@ -14,7 +14,7 @@ int main(int argc, char *argv[]) {
     if (optionConfig.serverLocator.empty()) {
         throw FatalError(HERE, "No listening address specified");
     }
-    Logger::log("server listen to %s", optionConfig.serverLocator.c_str());
+    Logger::log("server listen on %s", optionConfig.serverLocator.c_str());
 
     Context context(optionConfig, true);
 
