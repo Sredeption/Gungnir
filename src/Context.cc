@@ -8,7 +8,7 @@ namespace Gungnir {
 Context::Context(OptionConfig &optionConfig, bool hasDedicatedDispatchThread) :
     dispatch(nullptr), workerManager(nullptr), transport(nullptr) {
     dispatch = new Dispatch(hasDedicatedDispatchThread);
-    workerManager = new WorkerManager();
+    workerManager = new WorkerManager(this, optionConfig.maxCores);
     transport = new TcpTransport(this, optionConfig.serverLocator);
 }
 

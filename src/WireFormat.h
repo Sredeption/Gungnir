@@ -9,18 +9,21 @@ typedef enum Status {
     STATUS_OBJECT_DOESNT_EXIST = 2,
     STATUS_RETRY = 3,
     STATUS_MESSAGE_ERROR = 4,
-    STATUS_INTERNAL_ERROR = 5
+    STATUS_INTERNAL_ERROR = 5,
+    STATUS_UNIMPLEMENTED_REQUEST = 6
 } Status;
 
-enum Opcode {
-    GET = 1,
-    PUT = 2,
-    DELETE = 3,
-    SCAN = 4,
-};
 
 class WireFormat {
 public:
+    enum Opcode {
+        GET = 1,
+        PUT = 2,
+        DELETE = 3,
+        SCAN = 4,
+        ILLEGAL_RPC_TYPE = 100
+    };
+
     /**
      * Each RPC request starts with this structure.
      */

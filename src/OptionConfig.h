@@ -17,6 +17,7 @@ private:
 public:
     std::string serverLocator;
     std::string connectLocator;
+    uint32_t maxCores;
 
 };
 
