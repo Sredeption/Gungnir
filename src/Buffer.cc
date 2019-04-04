@@ -15,7 +15,7 @@ Buffer::Chunk::Chunk(void *data, uint32_t length)
 Buffer::Chunk::~Chunk() = default;
 
 Buffer::Buffer() :
-    totalLength(0), firstChunk(nullptr), lastChunk(nullptr), cursorChunk(nullptr), cursorOffset(0) {
+    totalLength(0), firstChunk(nullptr), lastChunk(nullptr), cursorChunk(nullptr), cursorOffset(~0u), allocations() {
 
 }
 
@@ -26,6 +26,7 @@ Buffer::~Buffer() {
 void *Buffer::alloc(size_t numBytes) {
     auto *chunk = new Chunk(getNewAllocation(numBytes), numBytes);
 
+    totalLength += numBytes;
     if (lastChunk != nullptr) {
         lastChunk->next = chunk;
     } else {
@@ -159,6 +160,86 @@ uint32_t Buffer::getNumberChunks() {
     return count;
 }
 
+uint32_t Buffer::copy(uint32_t offset, uint32_t length, void *dest) {
+    if ((offset + length) >= totalLength) {
+        if (offset >= totalLength) {
+            return 0;
+        }
+        length = totalLength - offset;
+    }
+
+    // Find the chunk containing the first byte to copy.
+    if (offset < cursorOffset) {
+        cursorOffset = 0;
+        cursorChunk = firstChunk;
+    }
+    while ((offset - cursorOffset) >= cursorChunk->length) {
+        cursorOffset += cursorChunk->length;
+        cursorChunk = cursorChunk->next;
+    }
+
+    // Each iteration through the following loop copies bytes from one chunk.
+    char *out = static_cast<char *>(dest);
+    uint32_t bytesLeft = length;
+    char *chunkData = cursorChunk->data + (offset - cursorOffset);
+    uint32_t bytesThisChunk = cursorChunk->length - (offset - cursorOffset);
+    while (true) {
+        if (bytesThisChunk > bytesLeft) {
+            bytesThisChunk = bytesLeft;
+        }
+        memcpy(out, chunkData, bytesThisChunk);
+        out += bytesThisChunk;
+        bytesLeft -= bytesThisChunk;
+        if (bytesLeft == 0) {
+            break;
+        }
+        cursorOffset += cursorChunk->length;
+        cursorChunk = cursorChunk->next;
+        chunkData = cursorChunk->data;
+        bytesThisChunk = cursorChunk->length;
+    }
+    return length;
+}
+
+void *Buffer::getRange(uint32_t offset, uint32_t length) {
+    // Try the fast path first: is the desired range available in the
+    // current chunk?
+    uint32_t offsetInChunk;
+    Chunk *chunk = cursorChunk;
+    if (offset >= cursorOffset) {
+        offsetInChunk = offset - cursorOffset;
+        if ((offsetInChunk + length) <= chunk->length) {
+            return chunk->data + offsetInChunk;
+        }
+    } else {
+        // The cached info is past the desired point; must start
+        // searching at the beginning of the buffer.
+        chunk = firstChunk;
+        offsetInChunk = offset;
+    }
+
+    if ((offset >= totalLength) || ((offset + length) > totalLength)) {
+        return nullptr;
+    }
+
+    // Find the chunk containing the first byte of the range.
+    while (offsetInChunk >= chunk->length) {
+        offsetInChunk -= chunk->length;
+        chunk = chunk->next;
+    }
+    cursorChunk = chunk;
+    cursorOffset = offset - offsetInChunk;
+
+    if ((offsetInChunk + length) <= cursorChunk->length) {
+        return cursorChunk->data + offsetInChunk;
+    }
+
+    // The desired range is not contiguous. Copy it.
+    char *data = static_cast<char *>(getNewAllocation(length));
+    copy(offset, length, data);
+    return data;
+}
+
 void *Buffer::getNewAllocation(size_t numBytes) {
     char *data = new char[numBytes];
     allocations.push_back(data);
@@ -184,16 +265,18 @@ void Buffer::resetInternal(bool isReset) {
         current = next;
     }
 
-
-    // Reset state.
-    if (isReset) {
-        totalLength = 0;
-        firstChunk = lastChunk = nullptr;
-    }
-
     for (auto allocation: allocations) {
         delete[] allocation;
     }
+
+    // Reset state.
+    if (isReset) {
+        allocations.clear();
+        totalLength = 0;
+        firstChunk = lastChunk = cursorChunk = nullptr;
+        cursorOffset = ~0u;
+    }
+
 }
 
 

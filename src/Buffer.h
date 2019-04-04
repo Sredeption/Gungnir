@@ -60,6 +60,32 @@ public:
 
     uint32_t getNumberChunks();
 
+    uint32_t copy(uint32_t offset, uint32_t length, void *dest);
+
+    template<typename T>
+    inline T *
+    getOffset(uint32_t offset) {
+        return static_cast<T *>(getRange(offset, sizeof(T)));
+    }
+
+    template<typename T>
+    inline T *
+    getStart() {
+        Chunk *chunk = firstChunk;
+        if (nullptr == chunk) {
+            return nullptr;
+        }
+        // Fast path: the object is stored contiguously in the first chunk.
+        if (chunk->length >= sizeof(T)) {
+            void *data = chunk->data;
+            return static_cast<T *>(data);
+        } else {
+            return getOffset<T>(0);
+        }
+    }
+
+    void *getRange(uint32_t offset, uint32_t length);
+
     class Iterator {
     public:
         explicit Iterator(const Buffer *buffer);
@@ -148,7 +174,6 @@ private:
 
     void resetInternal(bool isReset);
 };
-
 
 
 }
