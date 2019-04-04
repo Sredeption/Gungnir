@@ -3,6 +3,7 @@
 
 #include <cstdio>
 #include <cstdint>
+#include <vector>
 
 namespace Gungnir {
 
@@ -10,13 +11,9 @@ class Buffer {
 public:
     class Chunk {
     public:
-        Chunk(const void *data, uint32_t length)
-            : next(nullptr)
-              , data(const_cast<char *>(static_cast<const char *>(data)))
-              , length(length)
-              , internal(0) {}
+        Chunk(void *data, uint32_t length);
 
-        virtual ~Chunk() = default;
+        virtual ~Chunk();
 
         /// Next Chunk in Buffer, or NULL if this is the last Chunk.
         Chunk *next;
@@ -27,23 +24,24 @@ public:
         /// The number of valid bytes currently stored in the Chunk.
         uint32_t length;
 
-        /// Nonzero means this chunk refers to data that is stored
-        /// internally in this Buffer. Zero means the data is external.
-        uint8_t internal;
-
-
         Chunk(const Chunk &) = delete;
 
         Chunk &operator=(const Chunk &) = delete;
     };
+
+    Buffer();
+
+    ~Buffer();
+
+    Buffer(const Buffer &) = delete;
+
+    Buffer &operator=(const Buffer &) = delete;
 
     void *alloc(size_t numBytes);
 
     void append(const void *data, uint32_t numBytes);
 
     void append(Buffer *src, uint32_t offset = 0, uint32_t length = ~0);
-
-    void appendCopy(const void *data, uint32_t numBytes);
 
     inline uint32_t
     size() const {
@@ -70,7 +68,7 @@ public:
 
         Iterator(const Iterator &other);
 
-        ~Iterator();
+        ~Iterator() = default;
 
         Iterator &operator=(const Iterator &other);
 
@@ -139,9 +137,20 @@ private:
     uint32_t totalLength;
 
     Chunk *firstChunk;
-
     Chunk *lastChunk;
+
+    Chunk *cursorChunk;
+    uint32_t cursorOffset;
+
+    std::vector<char *> allocations;
+
+    void *getNewAllocation(size_t numBytes);
+
+    void resetInternal(bool isReset);
 };
+
+
+
 }
 
 #endif //GUNGNIR_BUFFER_H
