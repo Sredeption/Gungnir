@@ -4,7 +4,8 @@ import os
 import time
 
 hosts = []
-numbers = [3, 4, 5, 14, 18, 19]
+# numbers = [3, 4, 5, 14, 18, 19]
+numbers = [3, 4]
 
 for number in numbers:
     hosts.append("10.22.1.%d" % number)
@@ -73,3 +74,4 @@ if __name__ == '__main__':
     kill_server = KillServer(server_host)
     kill_server.start()
     kill_server.wait()
+    server.wait()

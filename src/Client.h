@@ -36,6 +36,13 @@ public:
     void wait(bool *objectExists);
 };
 
+class PutRpc : public RpcWrapper {
+public:
+    PutRpc(Client *client, uint64_t key, const void *buf, uint32_t length);
+
+    void wait();
+};
+
 }
 
 #endif //GUNGNIR_CLIENT_H

@@ -56,4 +56,22 @@ void GetRpc::wait(bool *objectExists) {
     response->truncateFront(sizeof(*respHdr));
     assert(respHdr->length == response->size());
 }
+
+PutRpc::PutRpc(Client *client, uint64_t key, const void *buf, uint32_t length)
+    : RpcWrapper(client->context, client->session, sizeof(WireFormat::Put::Response)) {
+
+    WireFormat::Put::Request *reqHdr(allocHeader<WireFormat::Put>());
+    reqHdr->key = key;
+    request.append(buf, length);
+
+    send();
+}
+
+void PutRpc::wait() {
+    waitInternal(context->dispatch);
+    const WireFormat::Put::Response *respHdr(
+        getResponseHeader<WireFormat::Put>());
+    if (respHdr->common.status != STATUS_OK)
+        ClientException::throwException(HERE, respHdr->common.status);
+}
 }

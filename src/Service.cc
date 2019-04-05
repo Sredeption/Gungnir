@@ -71,7 +71,8 @@ void GetService::performTask() {
 
 PutService::PutService(Worker *worker, Context *context, Transport::ServerRpc *rpc)
     : Service(worker, context, rpc) {
-
+    auto *respHdr = replyPayload->emplaceAppend<WireFormat::Put::Response>();
+    respHdr->common.status = STATUS_OK;
 }
 
 void PutService::performTask() {

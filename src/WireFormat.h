@@ -49,10 +49,20 @@ public:
         } __attribute__((packed));
         struct Response {
             ResponseCommon common;
-            uint32_t length;              // Length of the object's value in bytes.
+            uint32_t length;
         } __attribute__((packed));
     };
 
+    struct Put {
+        static const Opcode opcode = PUT;
+        struct Request {
+            RequestCommon common;
+            uint64_t key;
+        } __attribute__((packed));
+        struct Response {
+            ResponseCommon common;
+        } __attribute__((packed));
+    };
 };
 
 

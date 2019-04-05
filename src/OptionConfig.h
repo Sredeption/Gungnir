@@ -18,7 +18,11 @@ public:
     std::string serverLocator;
     std::string connectLocator;
     uint32_t maxCores;
-
+    uint32_t readPercent;
+    uint64_t targetOps;
+    uint32_t objectCount;
+    uint32_t objectSize;
+    uint64_t time;
 };
 
 }
