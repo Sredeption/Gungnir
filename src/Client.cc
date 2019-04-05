@@ -1,5 +1,6 @@
 #include "Client.h"
 #include "ClientException.h"
+#include "Logger.h"
 
 namespace Gungnir {
 

@@ -41,7 +41,10 @@ void Service::handleRpc(Context *context, Service::Rpc *rpc) {
 
     auto opcode = WireFormat::Opcode(header->opcode);
     try {
-        Logger::log(HERE, "Handle: %d", opcode);
+        if (opcode == WireFormat::Get::opcode) {
+            auto *respHdr = rpc->replyPayload->emplaceAppend<WireFormat::Get::Response>();
+            respHdr->length = 0;
+        }
     } catch (RetryException &e) {
         if (rpc->worker->replySent()) {
             throw FatalError(HERE, "Retry exception thrown after reply sent for %s RPC");
@@ -56,6 +59,11 @@ void Service::handleRpc(Context *context, Service::Rpc *rpc) {
             prepareErrorResponse(rpc->replyPayload, e.status);
         }
     }
+}
+
+void Service::read(const WireFormat::Get::Request *reqHdr,
+                   WireFormat::Get::Response *respHdr, Service::Rpc *rpc) {
+    respHdr->length = 0;
 }
 
 void Service::Rpc::sendReply() {

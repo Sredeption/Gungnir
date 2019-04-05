@@ -2,6 +2,7 @@
 #define GUNGNIR_SERVICE_H
 
 #include "WorkerManager.h"
+#include "ClientException.h"
 
 namespace Gungnir {
 
@@ -44,6 +45,28 @@ public:
                                      const char *message);
 
     static void handleRpc(Context *context, Rpc *rpc);
+
+private:
+    template<typename Op, typename S,
+        void (S::*handler)(const typename Op::Request *,
+                           typename Op::Response *,
+                           Rpc *)>
+    void
+    callHandler(Rpc *rpc) {
+        assert(rpc->replyPayload->size() == 0);
+        const typename Op::Request *reqHdr =
+            rpc->requestPayload->getStart<typename Op::Request>();
+        if (reqHdr == NULL)
+            throw MessageErrorException(HERE);
+        checkServerId(&reqHdr->common);
+        typename Op::Response *respHdr =
+            rpc->replyPayload->emplaceAppend<typename Op::Response>();
+        (static_cast<S *>(this)->*handler)(reqHdr, respHdr, rpc);
+    }
+
+    void read(const WireFormat::Get::Request *reqHdr,
+              WireFormat::Get::Response *respHdr,
+              Rpc *rpc);
 };
 
 

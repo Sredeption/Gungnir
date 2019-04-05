@@ -21,6 +21,11 @@ Buffer::Buffer() :
 
 Buffer::~Buffer() {
     resetInternal(false);
+
+    for (auto allocation: allocations) {
+        delete[] allocation;
+    }
+    allocations.clear();
 }
 
 void *Buffer::alloc(size_t numBytes) {
@@ -89,7 +94,7 @@ void Buffer::truncate(uint32_t newLength) {
         return;
     }
     if (bytesLeft == 0) {
-        reset();
+        resetInternal(true);
         return;
     }
 
@@ -127,7 +132,7 @@ void Buffer::truncate(uint32_t newLength) {
 
 void Buffer::truncateFront(uint32_t bytesToDelete) {
     if (bytesToDelete >= totalLength) {
-        reset();
+        resetInternal(true);
         return;
     }
     totalLength -= bytesToDelete;
@@ -268,13 +273,8 @@ void Buffer::resetInternal(bool isReset) {
         current = next;
     }
 
-    for (auto allocation: allocations) {
-        delete[] allocation;
-    }
-
     // Reset state.
     if (isReset) {
-        allocations.clear();
         totalLength = 0;
         firstChunk = lastChunk = cursorChunk = nullptr;
         cursorOffset = ~0u;
