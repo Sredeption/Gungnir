@@ -16,4 +16,6 @@ int main(int argc, char *argv[]) {
 
     Buffer buffer;
     client.get(12, &buffer);
+
+    Logger::log("Benchmark finished");
 }

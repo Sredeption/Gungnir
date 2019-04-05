@@ -24,16 +24,10 @@ public:
         ILLEGAL_RPC_TYPE = 100
     };
 
-    /**
-     * Each RPC request starts with this structure.
-     */
     struct RequestCommon {
         uint16_t opcode;              /// Opcode of operation to be performed.
     } __attribute__((packed));
 
-    /**
- * Each RPC response starts with this structure.
- */
     struct ResponseCommon {
         Status status;                // Indicates whether the operation
         // succeeded; if not, it explains why.
