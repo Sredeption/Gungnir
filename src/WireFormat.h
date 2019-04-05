@@ -19,7 +19,7 @@ public:
     enum Opcode {
         GET = 1,
         PUT = 2,
-        DELETE = 3,
+        ERASE = 3,
         SCAN = 4,
         ILLEGAL_RPC_TYPE = 100
     };

@@ -9,7 +9,6 @@ void Service::prepareErrorResponse(Buffer *replyPayload, Status status) {
     auto *responseCommon = const_cast<WireFormat::ResponseCommon *>(
         replyPayload->getStart<WireFormat::ResponseCommon>());
     if (responseCommon == nullptr) {
-        // Response is currently empty; add a header to it.
         responseCommon =
             replyPayload->emplaceAppend<WireFormat::ResponseCommon>();
     }
@@ -31,42 +30,69 @@ void Service::prepareRetryResponse(Buffer *replyPayload, uint32_t minDelayMicros
     }
 }
 
-void Service::handleRpc(Context *context, Service::Rpc *rpc) {
+Service *Service::dispatch(Worker *worker, Context *context, Transport::ServerRpc *rpc) {
     const WireFormat::RequestCommon *header;
-    header = rpc->requestPayload->getStart<WireFormat::RequestCommon>();
-    if (header == nullptr) {
-        prepareErrorResponse(rpc->replyPayload, STATUS_MESSAGE_ERROR);
-        return;
-    }
+    header = rpc->requestPayload.getStart<WireFormat::RequestCommon>();
 
     auto opcode = WireFormat::Opcode(header->opcode);
-    try {
-        if (opcode == WireFormat::Get::opcode) {
-            auto *respHdr = rpc->replyPayload->emplaceAppend<WireFormat::Get::Response>();
-            respHdr->length = 0;
-        }
-    } catch (RetryException &e) {
-        if (rpc->worker->replySent()) {
-            throw FatalError(HERE, "Retry exception thrown after reply sent for %s RPC");
-        } else {
-            prepareRetryResponse(rpc->replyPayload, e.minDelayMicros,
-                                 e.maxDelayMicros, e.message);
-        }
-    } catch (ClientException &e) {
-        if (rpc->worker->replySent()) {
-            throw FatalError(HERE, "exception thrown after reply sent for RPC");
-        } else {
-            prepareErrorResponse(rpc->replyPayload, e.status);
-        }
+    switch (opcode) {
+        case WireFormat::GET:
+            return new GetService(worker, context, rpc);
+        case WireFormat::PUT:
+            return new PutService(worker, context, rpc);
+        case WireFormat::ERASE:
+            return new EraseService(worker, context, rpc);
+        case WireFormat::SCAN:
+            return new ScanService(worker, context, rpc);
+        default:
+            return nullptr;
     }
 }
 
-void Service::read(const WireFormat::Get::Request *reqHdr,
-                   WireFormat::Get::Response *respHdr, Service::Rpc *rpc) {
-    respHdr->length = 0;
+Service::Service(Worker *worker, Context *context, Transport::ServerRpc *rpc)
+    : worker(worker), context(context), requestPayload(&rpc->requestPayload), replyPayload(&rpc->replyPayload) {
+
 }
 
 void Service::Rpc::sendReply() {
     worker->sendReply();
+}
+
+
+GetService::GetService(Worker *worker, Context *context, Transport::ServerRpc *rpc)
+    : Service(worker, context, rpc) {
+
+}
+
+void GetService::performTask() {
+    auto *respHdr = replyPayload->emplaceAppend<WireFormat::Get::Response>();
+    respHdr->length = 0;
+}
+
+PutService::PutService(Worker *worker, Context *context, Transport::ServerRpc *rpc)
+    : Service(worker, context, rpc) {
+
+}
+
+void PutService::performTask() {
+
+}
+
+EraseService::EraseService(Worker *worker, Context *context, Transport::ServerRpc *rpc)
+    : Service(worker, context, rpc) {
+
+}
+
+void EraseService::performTask() {
+
+}
+
+ScanService::ScanService(Worker *worker, Context *context, Transport::ServerRpc *rpc)
+    : Service(worker, context, rpc) {
+
+}
+
+void ScanService::performTask() {
+
 }
 }

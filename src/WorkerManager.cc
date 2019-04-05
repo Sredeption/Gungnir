@@ -5,68 +5,16 @@
 #include "TaskQueue.h"
 #include "Service.h"
 
-#include <linux/futex.h>
-#include <syscall.h>
-#include <unistd.h>
-
 
 namespace Gungnir {
 
-int WorkerManager::pollMicros = 10000;
-
-#define WORKER_EXIT reinterpret_cast<Transport::ServerRpc*>(1)
-
-void Worker::exit() {
-    Dispatch *dispatch = context->dispatch;
-    assert(dispatch->isDispatchThread());
-    if (exited) {
-        // Worker already exited; nothing to do.  This should only happen
-        // during tests.
-        return;
-    }
-
-    // Wait for the worker thread to finish handling any RPCs already
-    // queued for it.
-    while (busyIndex >= 0) {
-        dispatch->poll();
-    }
-
-    // Tell the worker thread to exit, and wait for it to actually exit
-    // (don't want it referencing the Worker structure anymore, since
-    // it could go away).
-    handoff(WORKER_EXIT);
-    thread->join();
-    rpc = nullptr;
-    exited = true;
-}
-
-void Worker::handoff(Transport::ServerRpc *newRpc) {
-    assert(rpc == nullptr);
-    rpc = newRpc;
-
-    int prevState = state.exchange(WORKING);
-    if (prevState == SLEEPING) {
-        if (WorkerManager::futexWake(reinterpret_cast<int *>(&state), 1)
-            == -1) {
-            Logger::log(HERE, "futexWake failed in Worker::handoff: %s", strerror(errno));
-        }
-    }
-}
-
-bool Worker::replySent() {
-    return (state.load(std::memory_order_acquire) == POSTPROCESSING);
-}
-
-void Worker::sendReply() {
-    state.store(POSTPROCESSING, std::memory_order_release);
-}
 
 WorkerManager::WorkerManager(Context *context, uint32_t maxCores)
     : Dispatch::Poller(context->dispatch, "WorkerManager")
       , context(context), waitingRpcs(), busyThreads(), idleThreads(), maxCores(maxCores), rpcsWaiting(0) {
     for (uint32_t i = 0; i < maxCores; i++) {
         auto *worker = new Worker(context);
-        worker->thread = std::make_unique<std::thread>(workerMain, worker);
+        worker->thread = std::make_unique<std::thread>(Worker::workerMain, worker);
         idleThreads.push_back(worker);
     }
 }
@@ -91,13 +39,11 @@ void WorkerManager::handleRpc(Transport::ServerRpc *rpc) {
         if (header == nullptr) {
             Logger::log(HERE, "Incoming RPC contains no header (message length %d)",
                         rpc->requestPayload.size());
-            Service::prepareErrorResponse(&rpc->replyPayload,
-                                          STATUS_MESSAGE_ERROR);
+            Service::prepareErrorResponse(&rpc->replyPayload, STATUS_MESSAGE_ERROR);
         } else {
             Logger::log(HERE, "Incoming RPC contained unknown opcode %d",
                         header->opcode);
-            Service::prepareErrorResponse(&rpc->replyPayload,
-                                          STATUS_UNIMPLEMENTED_REQUEST);
+            Service::prepareErrorResponse(&rpc->replyPayload, STATUS_UNIMPLEMENTED_REQUEST);
         }
         rpc->sendReply();
         return;
@@ -186,69 +132,5 @@ Transport::ServerRpc *WorkerManager::waitForRpc(double timeoutSeconds) {
     }
 }
 
-int WorkerManager::futexWake(int *addr, int count) {
-    return static_cast<int>(syscall(SYS_futex, addr, FUTEX_WAKE, count, NULL, NULL, 0));
-}
 
-int WorkerManager::futexWait(int *addr, int value) {
-    return static_cast<int>(::syscall(SYS_futex, addr, FUTEX_WAIT, value, NULL, NULL, 0));
-}
-
-void WorkerManager::workerMain(Worker *worker) {
-
-    worker->threadId = ThreadId::get();
-
-    uint64_t lastIdle = Cycles::rdtsc();
-
-    try {
-        uint64_t pollCycles = Cycles::fromNanoseconds(1000 * pollMicros);
-        while (true) {
-            uint64_t stopPollingTime = lastIdle + pollCycles;
-
-            // Wait for WorkerManager to supply us with some work to do.
-            while (worker->state.load(std::memory_order_acquire) != Worker::WORKING) {
-                if (lastIdle >= stopPollingTime) {
-
-                    // It's been a long time since we've had any work to do; go
-                    // to sleep so we don't waste any more CPU cycles.  Tricky
-                    // race condition: the dispatch thread could change the
-                    // state to WORKING just before we change it to SLEEPING,
-                    // so use an atomic op and only change to SLEEPING if the
-                    // current value is POLLING.
-                    int expected = Worker::POLLING;
-                    if (worker->state.compare_exchange_strong(expected, Worker::SLEEPING)) {
-                        if (WorkerManager::futexWait(reinterpret_cast<int *>(&worker->state), Worker::SLEEPING) == -1) {
-                            // EWOULDBLOCK means that someone already changed
-                            // worker->state, so we didn't block; this is
-                            // benign.
-                            if (errno != EWOULDBLOCK) {
-                                Logger::log(HERE, "futexWait failed in WorkerManager::workerMain: %s", strerror(errno));
-                            }
-                        }
-                    }
-                }
-                lastIdle = Cycles::rdtsc();
-            }
-            if (worker->rpc == WORKER_EXIT)
-                break;
-
-            Service::Rpc rpc(worker, &worker->rpc->requestPayload,
-                             &worker->rpc->replyPayload);
-            Service::handleRpc(worker->context, &rpc);
-
-            // Pass the RPC back to the dispatch thread for completion.
-            worker->state.store(Worker::POLLING, std::memory_order_release);
-
-            // Update performance statistics.
-            uint64_t current = Cycles::rdtsc();
-            lastIdle = current;
-        }
-    } catch (std::exception &e) {
-        Logger::log(HERE, "worker: %s", e.what());
-        throw; // will likely call std::terminate()
-    } catch (...) {
-        Logger::log(HERE, "worker");
-        throw; // will likely call std::terminate()
-    }
-}
 }

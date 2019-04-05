@@ -9,7 +9,8 @@ namespace Gungnir {
 class TaskQueue;
 
 class Task {
-    explicit Task(TaskQueue &taskQueue);
+public:
+    explicit Task();
 
     virtual ~Task();
 
@@ -18,14 +19,12 @@ class Task {
 
     bool isScheduled();
 
+protected:
     void schedule();
 
-protected:
-    /// Executes this Task when it isScheduled() on taskQueue.performTask().
-    TaskQueue &taskQueue;
+    TaskQueue *taskQueue;
 
 private:
-    /// True if performTask() will be run on the next taskQueue.performTask().
     bool scheduled;
 
     friend class TaskQueue;
@@ -34,16 +33,22 @@ private:
 class TaskQueue {
 public:
 
-    TaskQueue(Context *context);
+    explicit TaskQueue(Context *context);
 
-    ~TaskQueue();
+    virtual ~TaskQueue() = default;
 
-    bool performTask();
+    bool isIdle();
+
+    virtual bool performTask() = 0;
 
     void schedule(Task *task);
 
-private:
+protected:
+    Context *context;
+
     std::queue<Task *> tasks;
+
+    Task *getNextTask();
 };
 
 }
