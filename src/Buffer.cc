@@ -51,6 +51,7 @@ void Buffer::append(Buffer *src, uint32_t offset, uint32_t length) {
 
     while (!it.isDone()) {
         append(it.getData(), it.getLength());
+        it.next();
     }
 }
 

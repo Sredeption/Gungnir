@@ -61,7 +61,7 @@ GetService::GetService(Worker *worker, Context *context, Transport::ServerRpc *r
 }
 
 void GetService::performTask() {
-    auto *reqHdr = requestPayload->getStart<WireFormat::Put::Request>();
+    auto *reqHdr = requestPayload->getStart<WireFormat::Get::Request>();
     Key key(reqHdr->key);
 
     auto *respHdr = replyPayload->emplaceAppend<WireFormat::Get::Response>();
@@ -123,6 +123,7 @@ void PutService::performTask() {
     if (state == WRITE) {
         Object *old = node->setObject(object);
         skipList->destroy(old);
+        guard.unlock();
         state = DONE;
     }
 }

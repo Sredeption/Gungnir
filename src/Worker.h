@@ -37,7 +37,6 @@ public:
 
     static void workerMain(Worker *worker);
 
-private:
     int busyIndex;
     std::atomic<int> state;
     enum {

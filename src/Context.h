@@ -25,6 +25,8 @@ public:
     LogCleaner *logCleaner;
     OptionConfig *optionConfig;
 
+    Context();
+
     explicit Context(OptionConfig &optionConfig, bool hasDedicatedDispatchThread);
 
     ~Context();

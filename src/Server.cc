@@ -11,7 +11,7 @@ Server::Server(Context *context) :
     context(context) {
     context->skipList = new ConcurrentSkipList(context);
     context->workerManager = new WorkerManager(context, context->optionConfig->maxCores);
-    context->logCleaner= new LogCleaner(context);
+    context->logCleaner = new LogCleaner(context);
 }
 
 Server::~Server() {
@@ -22,6 +22,8 @@ Server::~Server() {
 void Server::run() {
 
     Dispatch &dispatch = *context->dispatch;
+
+    context->logCleaner->start();
 
     dispatch.run();
 }

@@ -196,13 +196,17 @@ ConcurrentSkipList::Node *ConcurrentSkipList::create(uint8_t height, Key key, bo
 
 
 void ConcurrentSkipList::destroy(ConcurrentSkipList::Node *node) {
-    int removalEpoch = epoch.fetch_add(1);
-    context->logCleaner->collect(removalEpoch, node);
+    if (node != nullptr) {
+        int removalEpoch = epoch.fetch_add(1);
+        context->logCleaner->collect(removalEpoch, node);
+    }
 }
 
 void ConcurrentSkipList::destroy(Object *object) {
-    int removalEpoch = epoch.fetch_add(1);
-    context->logCleaner->collect(removalEpoch, object);
+    if (object != nullptr) {
+        int removalEpoch = epoch.fetch_add(1);
+        context->logCleaner->collect(removalEpoch, object);
+    }
 }
 
 size_t ConcurrentSkipList::getSize() const {
@@ -286,8 +290,8 @@ ConcurrentSkipList::Node *ConcurrentSkipList::addOrGetNode(const Key &key) {
     bool locked = false;
     for (int i = 0; i < 10; i++) {
         locked = tryLockNodesForChange(nodeHeight, guards, predecessors, successors);
-        if (!locked) {
-            continue;
+        if (locked) {
+            break;
         }
     }
     if (!locked)
@@ -448,7 +452,7 @@ ConcurrentSkipList::Node *ConcurrentSkipList::lowerBound(const Key &data) const 
 }
 
 ConcurrentSkipList::ConcurrentSkipList(Context *context, int height)
-    : context(), allocator(), head(create(height, Key(), true)), size(0), epoch(0) {
+    : context(context), allocator(), head(create(height, Key(), true)), size(0), epoch(0) {
 
 }
 
@@ -478,97 +482,6 @@ Key ConcurrentSkipList::Iterator::getKey() {
 
 bool ConcurrentSkipList::Iterator::operator==(const Iterator &that) const {
     return this->node == that.node;
-}
-
-// Unsafe initializer: the caller assumes the responsibility to keep
-// skipList valid during the whole life cycle of the Accessor.
-ConcurrentSkipList::Accessor::Accessor(ConcurrentSkipList *skipList) : skipList(skipList) {
-    assert(skipList != nullptr);
-}
-
-bool ConcurrentSkipList::Accessor::empty() const {
-    return skipList->getSize() == 0;
-}
-
-size_t ConcurrentSkipList::Accessor::size() const {
-    return skipList->getSize();
-}
-
-ConcurrentSkipList::Iterator ConcurrentSkipList::Accessor::find(const Key &value) {
-    return Iterator(skipList->find(value));
-}
-
-ConcurrentSkipList::Iterator ConcurrentSkipList::Accessor::begin() const {
-    Node *head = skipList->head.load(std::memory_order_consume);
-    return Iterator(head->next());
-}
-
-ConcurrentSkipList::Iterator ConcurrentSkipList::Accessor::end() const {
-    return Iterator();
-}
-
-ConcurrentSkipList::Iterator ConcurrentSkipList::Accessor::insert(Key data) {
-    auto ret = skipList->addOrGetNode(data);
-    if (ret != nullptr)
-        return Iterator(ret);
-    else
-        return Iterator();
-}
-
-size_t ConcurrentSkipList::Accessor::erase(const Key &data) {
-    return remove(data);
-}
-
-ConcurrentSkipList::Iterator ConcurrentSkipList::Accessor::lowerBound(const Key &data) const {
-    return Iterator(skipList->lowerBound(data));
-}
-
-size_t ConcurrentSkipList::Accessor::height() const {
-    return skipList->getHeight();
-}
-
-// first() returns pointer to the first element in the skiplist, or
-// nullptr if empty.
-//
-// last() returns the pointer to the last element in the skiplist,
-// nullptr if list is empty.
-//
-// Note: As concurrent writing can happen, first() is not
-//   guaranteed to be the min_element() in the list. Similarly
-//   last() is not guaranteed to be the max_element(), and both of them can
-//   be invalid (i.e. nullptr), so we name them differently from front() and
-//   tail() here.
-const Key *ConcurrentSkipList::Accessor::first() const {
-    return skipList->first();
-}
-
-const Key *ConcurrentSkipList::Accessor::last() const {
-    return skipList->last();
-}
-
-// Try to remove the last element in the skip list.
-//
-// Returns true if we removed it, false if either the list is empty
-// or a race condition happened (i.e. the used-to-be last element
-// was already removed by another thread).
-bool ConcurrentSkipList::Accessor::popBack() {
-    auto last = skipList->last();
-    return last ? skipList->remove(*last) : false;
-}
-
-
-// Returns true if the node is added successfully, false if not, i.e. the
-// node with the same key already existed in the list.
-bool ConcurrentSkipList::Accessor::contains(const Key &key) const {
-    return skipList->find(key);
-}
-
-bool ConcurrentSkipList::Accessor::add(const Key &key) {
-    return skipList->addOrGetNode(key);
-}
-
-bool ConcurrentSkipList::Accessor::remove(const Key &key) {
-    return skipList->remove(key);
 }
 
 }
