@@ -68,27 +68,33 @@ void GetService::performTask() {
     ConcurrentSkipList::Node *node = skipList->find(key);
     if (node != nullptr && !node->markedForRemoval()) {
         respHdr->common.status = STATUS_OK;
-        respHdr->length = 0;
-    } else {
-        respHdr->common.status = STATUS_OBJECT_DOESNT_EXIST;
+        Object *object = node->getObject();
+        if (object != nullptr) {
+            replyPayload->append(&object->value);
+            respHdr->length = object->value.size();
+            respHdr->common.status = STATUS_OK;
+            return;
+        }
     }
+    respHdr->common.status = STATUS_OBJECT_DOESNT_EXIST;
 }
 
 PutService::PutService(Worker *worker, Context *context, Transport::ServerRpc *rpc)
-    : Service(worker, context, rpc), state(FIND), node(nullptr), guard() {
+    : Service(worker, context, rpc), state(FIND), node(nullptr), guard(), object(nullptr) {
     auto *respHdr = replyPayload->emplaceAppend<WireFormat::Put::Response>();
     respHdr->common.status = STATUS_OK;
 }
 
 void PutService::performTask() {
     auto *reqHdr = requestPayload->getStart<WireFormat::Put::Request>();
-    requestPayload->getRange(sizeof(*reqHdr), reqHdr->length);
+
     Key key(reqHdr->key);
     if (state == FIND) {
         node = skipList->addOrGetNode(key);
-        if (node == nullptr)
+        if (node == nullptr) {
+            schedule();
             return;
-        else
+        } else
             state = LOCK;
     }
     if (state == LOCK) {
@@ -102,14 +108,21 @@ void PutService::performTask() {
             if (node->markedForRemoval()) {
                 guard.unlock();
                 state = FIND;
+                schedule();
                 return;
             }
-            state = INSERT;
+
+            requestPayload->truncateFront(sizeof(*reqHdr));
+            object = new Object(key, requestPayload);
+            state = WRITE;
         } else {
+            schedule();
             return;
         }
     }
-    if (state == INSERT) {
+    if (state == WRITE) {
+        Object *old = node->setObject(object);
+        skipList->destroy(old);
         state = DONE;
     }
 }

@@ -19,23 +19,37 @@ void LogCleaner::collect(int epoch, ConcurrentSkipList::Node *node) {
     removals.emplace_back(epoch, node);
 }
 
+void LogCleaner::collect(int epoch, Object *object) {
+    SpinLock::Guard guard(lock);
+    objects.emplace_back(epoch, object);
+}
+
 void LogCleaner::loadEpoch() {
     context->workerManager->minEpoch.load();
 }
 
 bool LogCleaner::clean() {
     bool workDone = false;
-    ConcurrentSkipList::Node *node = nullptr;
+    ConcurrentSkipList::Node *nodeToDelete = nullptr;
+    Object *objectToDelete = nullptr;
     {
         SpinLock::Guard guard(lock);
         auto removal = removals.front();
         if (removal.first < minEpoch) {
-            node = removal.second;
+            nodeToDelete = removal.second;
             removals.pop_front();
             workDone = true;
         }
+        auto object = objects.front();
+        if (object.first < minEpoch) {
+            objectToDelete = object.second;
+            objects.pop_front();
+            workDone = true;
+        }
+
     }
-    delete node;
+    delete nodeToDelete;
+    delete objectToDelete;
 
     return workDone;
 }

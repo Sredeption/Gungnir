@@ -19,6 +19,8 @@ public:
 
     void collect(int epoch, ConcurrentSkipList::Node *node);
 
+    void collect(int epoch, Object *object);
+
     void loadEpoch();
 
     bool clean();
@@ -32,6 +34,7 @@ private:
     std::unique_ptr<std::thread> cleaner;
 
     std::list<std::pair<int, ConcurrentSkipList::Node *>> removals;
+    std::list<std::pair<int, Object *>> objects;
 
     SpinLock lock;
 

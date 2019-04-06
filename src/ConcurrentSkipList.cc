@@ -6,8 +6,8 @@ namespace Gungnir {
 
 ConcurrentSkipList::Node::Node(std::allocator<std::atomic<ConcurrentSkipList::Node *>> &allocator, uint8_t height,
                                Key key, bool isHead)
-    : allocator(allocator), key(std::forward<Key>(key)), value(), flags(), height(height), spinLock("SkipList::Node")
-      , forward() {
+    : allocator(allocator), key(std::forward<Key>(key)), flags(), height(height), spinLock("SkipList::Node")
+      , forward(), object() {
     setFlags(0);
     if (isHead) {
         setIsHeadNode();
@@ -95,9 +95,19 @@ void ConcurrentSkipList::Node::setMarkedForRemoval() {
     setFlags(uint16_t(getFlags() | MARKED_FOR_REMOVAL));
 }
 
+Object *ConcurrentSkipList::Node::setObject(Object *object) {
+    Object *old = this->object;
+    this->object = object;
+    return old;
+}
+
+Object *ConcurrentSkipList::Node::getObject() {
+    return this->object;
+}
+
 ConcurrentSkipList::RandomHeight *ConcurrentSkipList::RandomHeight::instance() {
-    static RandomHeight instance_;
-    return &instance_;
+    static RandomHeight instance;
+    return &instance;
 }
 
 int ConcurrentSkipList::RandomHeight::getHeight(int maxHeight) const {
@@ -188,6 +198,11 @@ ConcurrentSkipList::Node *ConcurrentSkipList::create(uint8_t height, Key key, bo
 void ConcurrentSkipList::destroy(ConcurrentSkipList::Node *node) {
     int removalEpoch = epoch.fetch_add(1);
     context->logCleaner->collect(removalEpoch, node);
+}
+
+void ConcurrentSkipList::destroy(Object *object) {
+    int removalEpoch = epoch.fetch_add(1);
+    context->logCleaner->collect(removalEpoch, object);
 }
 
 size_t ConcurrentSkipList::getSize() const {

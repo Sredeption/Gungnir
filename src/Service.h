@@ -41,7 +41,7 @@ public:
     enum State {
         FIND,
         LOCK,
-        INSERT,
+        WRITE,
         DONE
     };
 
@@ -53,6 +53,7 @@ private:
     State state;
     ConcurrentSkipList::Node *node;
     ConcurrentSkipList::ScopedLocker guard;
+    Object *object;
 };
 
 class EraseService : public Service {

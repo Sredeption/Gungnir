@@ -13,6 +13,7 @@
 #include "Value.h"
 #include "SpinLock.h"
 #include "Context.h"
+#include "Object.h"
 
 
 namespace Gungnir {
@@ -70,6 +71,10 @@ public:
 
         void setMarkedForRemoval();
 
+        Object *setObject(Object *object);
+
+        Object *getObject();
+
     private:
 
         uint16_t getFlags() const {
@@ -82,12 +87,11 @@ public:
 
         std::allocator<std::atomic<Node *>> &allocator;
         Key key;
-        Value value;
         std::atomic<uint16_t> flags;
         const uint8_t height;
         SpinLock spinLock;
         std::atomic<Node *> *forward;
-
+        Object *object;
     };
 
 private:
@@ -130,7 +134,6 @@ private:
 
     Node *create(uint8_t height, Key key, bool isHead = false);
 
-    void destroy(Node *node);
 
     size_t getSize() const;
 
@@ -144,6 +147,10 @@ public:
     typedef std::unique_lock<SpinLock> ScopedLocker;
     typedef ScopedLocker LayerLocker[MAX_HEIGHT];
     std::atomic<int> epoch;
+
+    void destroy(Node *node);
+
+    void destroy(Object *object);
 
     // Returns the node if found, nullptr otherwise.
     Node *find(const Key &key);
