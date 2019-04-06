@@ -71,8 +71,8 @@ int ConcurrentSkipList::Node::getHeight() const {
     return height;
 }
 
-std::unique_lock<SpinLock> ConcurrentSkipList::Node::acquireGuard() {
-    return std::unique_lock<SpinLock>(spinLock);
+std::unique_lock<SpinLock> ConcurrentSkipList::Node::tryAcquireGuard() {
+    return std::unique_lock<SpinLock>(spinLock, std::try_to_lock);
 }
 
 bool ConcurrentSkipList::Node::fullyLinked() const {
@@ -215,9 +215,9 @@ ConcurrentSkipList::Node *ConcurrentSkipList::find(const Key &key) {
 }
 
 
-bool ConcurrentSkipList::lockNodesForChange(int nodeHeight, ConcurrentSkipList::ScopedLocker *guards,
-                                            ConcurrentSkipList::Node **predecessors,
-                                            ConcurrentSkipList::Node **successors, bool adding) {
+bool ConcurrentSkipList::tryLockNodesForChange(int nodeHeight, LayerLocker guards,
+                                               Node **predecessors,
+                                               Node **successors, bool adding) {
     Node *predecessor, *successor, *prevPred = nullptr;
     bool valid = true;
     for (int layer = 0; valid && layer < nodeHeight; ++layer) {
@@ -225,7 +225,13 @@ bool ConcurrentSkipList::lockNodesForChange(int nodeHeight, ConcurrentSkipList::
         assert(predecessor != nullptr);
         successor = successors[layer];
         if (predecessor != prevPred) {
-            guards[layer] = predecessor->acquireGuard();
+            guards[layer] = predecessor->tryAcquireGuard();
+            if (!guards[layer].owns_lock()) {
+                for (int i = 0; i < layer; i++) {
+                    guards[layer].unlock();
+                }
+                return false;
+            }
             prevPred = predecessor;
         }
         valid = !predecessor->markedForRemoval() &&
@@ -239,63 +245,52 @@ bool ConcurrentSkipList::lockNodesForChange(int nodeHeight, ConcurrentSkipList::
     return valid;
 }
 
-// Returns a paired value:
-//   pair.first always stores the pointer to the node with the same input key.
-//     It could be either the newly added data, or the existed data in the
-//     list with the same key.
-//   pair.second stores whether the data is added successfully:
-//     0 means not added, otherwise reutrns the new size.
-std::pair<ConcurrentSkipList::Node *, size_t> ConcurrentSkipList::addOrGetData(const Key &key) {
+ConcurrentSkipList::Node *ConcurrentSkipList::addOrGetNode(const Key &key) {
     Node *predecessors[MAX_HEIGHT], *successors[MAX_HEIGHT];
-    Node *newNode;
+    Node *newNode = nullptr;
     size_t newSize;
-    while (true) {
-        int maxMayer = 0;
-        int layer = findInsertionPointGetMaxLayer(key, predecessors, successors, &maxMayer);
+    int maxMayer = 0;
+    int layer = findInsertionPointGetMaxLayer(key, predecessors, successors, &maxMayer);
 
-        if (layer >= 0) {
-            Node *nodeFound = successors[layer];
-            assert(nodeFound != nullptr);
-            if (nodeFound->markedForRemoval()) {
-                continue; // if it's getting deleted retry finding node.
-            }
-            // wait until fully linked.
-            while (!nodeFound->fullyLinked()) {
-            }
-            return std::make_pair(nodeFound, 0);
+    if (layer >= 0) {
+        Node *nodeFound = successors[layer];
+        assert(nodeFound != nullptr);
+        if (nodeFound->markedForRemoval()) {
+            return nullptr; // if it's getting deleted retry finding node.
         }
-
-        // need to capped at the original height -- the real height may have grown
-        int nodeHeight =
-            RandomHeight::instance()->getHeight(maxMayer + 1);
-
-        ScopedLocker guards[MAX_HEIGHT];
-        if (!lockNodesForChange(nodeHeight, guards, predecessors, successors)) {
-            continue; // give up the locks and retry until all valid
+        // wait until fully linked.
+        while (!nodeFound->fullyLinked()) {
         }
-
-        // locks acquired and all valid, need to modify the links under the locks.
-
-        newNode = create(nodeHeight, key);
-        for (int k = 0; k < nodeHeight; ++k) {
-            newNode->setSkip(k, successors[k]);
-            predecessors[k]->setSkip(k, newNode);
-        }
-
-        newNode->setFullyLinked();
-        newSize = incrementSize(1);
-        break;
+        return nodeFound;
     }
 
-    int hgt = getHeight();
-    size_t sizeLimit =
-        RandomHeight::instance()->getSizeLimit(hgt);
+    // need to capped at the original height -- the real height may have grown
+    int nodeHeight = RandomHeight::instance()->getHeight(maxMayer + 1);
 
-    if (hgt < MAX_HEIGHT && newSize > sizeLimit) {
-        growHeight(hgt + 1);
+    LayerLocker guards;
+    bool locked = false;
+    for (int i = 0; i < 10; i++) {
+        locked = tryLockNodesForChange(nodeHeight, guards, predecessors, successors);
+        if (!locked) {
+            continue;
+        }
     }
+    if (!locked)
+        return nullptr;
+
+    // locks acquired and all valid, need to modify the links under the locks.
+
+    newNode = create(nodeHeight, key);
+    for (int k = 0; k < nodeHeight; ++k) {
+        newNode->setSkip(k, successors[k]);
+        predecessors[k]->setSkip(k, newNode);
+    }
+
+    newNode->setFullyLinked();
+    newSize = incrementSize(1);
+
     assert(newSize > 0);
-    return std::make_pair(newNode, newSize);
+    return newNode;
 }
 
 bool ConcurrentSkipList::remove(const Key &key) {
@@ -315,7 +310,7 @@ bool ConcurrentSkipList::remove(const Key &key) {
         if (!isMarked) {
             nodeToDelete = successors[layer];
             nodeHeight = nodeToDelete->getHeight();
-            nodeGuard = nodeToDelete->acquireGuard();
+            nodeGuard = nodeToDelete->tryAcquireGuard();
             if (nodeToDelete->markedForRemoval()) {
                 return false;
             }
@@ -325,7 +320,7 @@ bool ConcurrentSkipList::remove(const Key &key) {
 
         // acquire pred locks from bottom layer up
         ScopedLocker guards[MAX_HEIGHT];
-        if (!lockNodesForChange(nodeHeight, guards, predecessors, successors, false)) {
+        if (!tryLockNodesForChange(nodeHeight, guards, predecessors, successors, false)) {
             continue; // this will unlock all the locks
         }
 
@@ -437,31 +432,6 @@ ConcurrentSkipList::Node *ConcurrentSkipList::lowerBound(const Key &data) const 
     return node;
 }
 
-void ConcurrentSkipList::growHeight(int height) {
-    Node *oldHead = head.load(std::memory_order_consume);
-    if (oldHead->getHeight() >= height) { // someone else already did this
-        return;
-    }
-
-    Node *newHead = create(height, Key(), true);
-
-    { // need to guard the head node in case others are adding/removing
-        // nodes linked to the head.
-        ScopedLocker g = oldHead->acquireGuard();
-        newHead->copyHead(oldHead);
-        Node *expected = oldHead;
-        if (!head.compare_exchange_strong(
-            expected, newHead, std::memory_order_release)) {
-            // if someone has already done the swap, just return.
-            destroy(newHead);
-            return;
-        }
-        oldHead->setMarkedForRemoval();
-    }
-    destroy(oldHead);
-}
-
-
 ConcurrentSkipList::ConcurrentSkipList(Context *context, int height)
     : context(), allocator(), head(create(height, Key(), true)), size(0), epoch(0) {
 
@@ -523,9 +493,9 @@ ConcurrentSkipList::Iterator ConcurrentSkipList::Accessor::end() const {
 }
 
 ConcurrentSkipList::Iterator ConcurrentSkipList::Accessor::insert(Key data) {
-    auto ret = skipList->addOrGetData(data);
-    if (ret.second)
-        return Iterator(ret.first);
+    auto ret = skipList->addOrGetNode(data);
+    if (ret != nullptr)
+        return Iterator(ret);
     else
         return Iterator();
 }
@@ -571,10 +541,6 @@ bool ConcurrentSkipList::Accessor::popBack() {
     return last ? skipList->remove(*last) : false;
 }
 
-std::pair<Key *, bool> ConcurrentSkipList::Accessor::addOrGetData(const Key &data) {
-    auto ret = skipList->addOrGetData(data);
-    return std::make_pair(&ret.first->getKey(), ret.second);
-}
 
 // Returns true if the node is added successfully, false if not, i.e. the
 // node with the same key already existed in the list.
@@ -583,7 +549,7 @@ bool ConcurrentSkipList::Accessor::contains(const Key &key) const {
 }
 
 bool ConcurrentSkipList::Accessor::add(const Key &key) {
-    return skipList->addOrGetData(key).second;
+    return skipList->addOrGetNode(key);
 }
 
 bool ConcurrentSkipList::Accessor::remove(const Key &key) {

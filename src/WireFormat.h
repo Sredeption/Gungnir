@@ -58,6 +58,7 @@ public:
         struct Request {
             RequestCommon common;
             uint64_t key;
+            uint64_t length;
         } __attribute__((packed));
         struct Response {
             ResponseCommon common;

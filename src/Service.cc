@@ -51,8 +51,8 @@ Service *Service::dispatch(Worker *worker, Context *context, Transport::ServerRp
 }
 
 Service::Service(Worker *worker, Context *context, Transport::ServerRpc *rpc)
-    : worker(worker), context(context), requestPayload(&rpc->requestPayload), replyPayload(&rpc->replyPayload) {
-    context->skipList->epoch.load();
+    : worker(worker), context(context), requestPayload(&rpc->requestPayload), replyPayload(&rpc->replyPayload)
+      , skipList(context->skipList) {
 
 }
 
@@ -61,21 +61,57 @@ GetService::GetService(Worker *worker, Context *context, Transport::ServerRpc *r
 }
 
 void GetService::performTask() {
+    auto *reqHdr = requestPayload->getStart<WireFormat::Put::Request>();
+    Key key(reqHdr->key);
+
     auto *respHdr = replyPayload->emplaceAppend<WireFormat::Get::Response>();
-    respHdr->length = 0;
+    ConcurrentSkipList::Node *node = skipList->find(key);
+    if (node != nullptr && !node->markedForRemoval()) {
+        respHdr->common.status = STATUS_OK;
+        respHdr->length = 0;
+    } else {
+        respHdr->common.status = STATUS_OBJECT_DOESNT_EXIST;
+    }
 }
 
 PutService::PutService(Worker *worker, Context *context, Transport::ServerRpc *rpc)
-    : Service(worker, context, rpc) {
+    : Service(worker, context, rpc), state(FIND), node(nullptr), guard() {
     auto *respHdr = replyPayload->emplaceAppend<WireFormat::Put::Response>();
     respHdr->common.status = STATUS_OK;
 }
 
 void PutService::performTask() {
-    ConcurrentSkipList *skipList = context->skipList;
     auto *reqHdr = requestPayload->getStart<WireFormat::Put::Request>();
+    requestPayload->getRange(sizeof(*reqHdr), reqHdr->length);
     Key key(reqHdr->key);
-    skipList->addOrGetData(key);
+    if (state == FIND) {
+        node = skipList->addOrGetNode(key);
+        if (node == nullptr)
+            return;
+        else
+            state = LOCK;
+    }
+    if (state == LOCK) {
+        for (int i = 0; i < 10; i++) {
+            guard = node->tryAcquireGuard();
+            if (guard.owns_lock()) {
+                break;
+            }
+        }
+        if (guard.owns_lock()) {
+            if (node->markedForRemoval()) {
+                guard.unlock();
+                state = FIND;
+                return;
+            }
+            state = INSERT;
+        } else {
+            return;
+        }
+    }
+    if (state == INSERT) {
+        state = DONE;
+    }
 }
 
 EraseService::EraseService(Worker *worker, Context *context, Transport::ServerRpc *rpc)

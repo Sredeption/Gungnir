@@ -3,7 +3,9 @@
 
 #include "WorkerManager.h"
 #include "ClientException.h"
+#include "ConcurrentSkipList.h"
 #include "TaskQueue.h"
+#include "Key.h"
 
 namespace Gungnir {
 
@@ -24,7 +26,7 @@ public:
     Context *context;
     Buffer *requestPayload;
     Buffer *replyPayload;
-
+    ConcurrentSkipList *skipList;
 };
 
 class GetService : public Service {
@@ -36,9 +38,21 @@ public:
 
 class PutService : public Service {
 public:
+    enum State {
+        FIND,
+        LOCK,
+        INSERT,
+        DONE
+    };
+
     PutService(Worker *worker, Context *context, Transport::ServerRpc *rpc);
 
     void performTask() override;
+
+private:
+    State state;
+    ConcurrentSkipList::Node *node;
+    ConcurrentSkipList::ScopedLocker guard;
 };
 
 class EraseService : public Service {

@@ -13,4 +13,13 @@ uint64_t Key::value() const {
     return key;
 }
 
+Key::Key(const Key &that) {
+    this->key = that.key;
+}
+
+Key &Key::operator=(const Key &that) {
+    this->key = that.key;
+    return *this;
+}
+
 }

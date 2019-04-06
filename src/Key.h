@@ -14,6 +14,10 @@ class Key {
 public:
     Key();
 
+    Key(const Key &that);
+
+    Key &operator=(const Key &that);
+
     Key(uint64_t key);
 
     uint64_t value() const;

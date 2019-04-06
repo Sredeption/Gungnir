@@ -17,6 +17,8 @@
 
 namespace Gungnir {
 
+#define MAX_HEIGHT 24
+
 class ConcurrentSkipList {
 public:
 
@@ -52,7 +54,7 @@ public:
 
         int getHeight() const;
 
-        std::unique_lock<SpinLock> acquireGuard();
+        std::unique_lock<SpinLock> tryAcquireGuard();
 
         bool fullyLinked() const;
 
@@ -112,11 +114,6 @@ private:
         size_t sizeLimitTable[MaxHeightLimit];
     };
 
-    enum : int {
-        MAX_HEIGHT = 24
-    };
-
-    typedef std::unique_lock<SpinLock> ScopedLocker;
 
     static bool greater(const Key &data, const Node *node);
 
@@ -144,19 +141,21 @@ private:
     size_t incrementSize(int delta);
 
 public:
+    typedef std::unique_lock<SpinLock> ScopedLocker;
+    typedef ScopedLocker LayerLocker[MAX_HEIGHT];
     std::atomic<int> epoch;
 
     // Returns the node if found, nullptr otherwise.
     Node *find(const Key &key);
 
-    static bool lockNodesForChange(
+    static bool tryLockNodesForChange(
         int nodeHeight,
-        ScopedLocker guards[MAX_HEIGHT],
+        LayerLocker guards,
         Node *predecessors[MAX_HEIGHT],
         Node *successors[MAX_HEIGHT],
         bool adding = true);
 
-    std::pair<Node *, size_t> addOrGetData(const Key &key);
+    Node *addOrGetNode(const Key &key);
 
     bool remove(const Key &key);
 
@@ -181,11 +180,9 @@ private:
 
     Node *lowerBound(const Key &data) const;
 
-    void growHeight(int height);
-
 public:
 
-    explicit ConcurrentSkipList(Context *context, int height = 16);
+    explicit ConcurrentSkipList(Context *context, int height = MAX_HEIGHT - 1);
 
     class Iterator {
     public:
@@ -244,8 +241,6 @@ public:
         const Key *last() const;
 
         bool popBack();
-
-        std::pair<Key *, bool> addOrGetData(const Key &data);
 
         bool contains(const Key &key) const;
 

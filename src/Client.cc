@@ -63,6 +63,7 @@ PutRpc::PutRpc(Client *client, uint64_t key, const void *buf, uint32_t length)
 
     WireFormat::Put::Request *reqHdr(allocHeader<WireFormat::Put>());
     reqHdr->key = key;
+    reqHdr->length = length;
     request.append(buf, length);
 
     send();
