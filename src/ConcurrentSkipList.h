@@ -178,6 +178,8 @@ public:
         Node *successors[],
         int *max_layer) const;
 
+    Node *lowerBound(const Key &data) const;
+
 private:
     std::pair<Node *, int> findNode(const Key &key) const;
 
@@ -185,7 +187,6 @@ private:
 
     std::pair<Node *, int> findNodeRightDown(const Key &key) const;
 
-    Node *lowerBound(const Key &data) const;
 
 public:
 

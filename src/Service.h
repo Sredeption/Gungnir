@@ -83,9 +83,22 @@ private:
 
 class ScanService : public Service {
 public:
+    enum State {
+        INIT,
+        COLLECT,
+        DONE
+    };
+
     ScanService(Worker *worker, Context *context, Transport::ServerRpc *rpc);
 
     void performTask() override;
+
+    void append(Object* object);
+
+private:
+    State state;
+    ConcurrentSkipList::Node *current;
+    uint32_t size;
 };
 
 }

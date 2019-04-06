@@ -74,6 +74,18 @@ public:
             ResponseCommon common;
         } __attribute__((packed));
     };
+    struct Scan {
+        static const Opcode opcode = SCAN;
+        struct Request {
+            RequestCommon common;
+            uint64_t start;
+            uint64_t end;
+        } __attribute__((packed));
+        struct Response {
+            ResponseCommon common;
+            uint16_t size;
+        } __attribute__((packed));
+    };
 };
 
 

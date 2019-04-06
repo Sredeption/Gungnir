@@ -5,6 +5,7 @@
 #include "ConcurrentSkipList.h"
 #include "LogCleaner.h"
 #include "Service.h"
+#include "Iterator.h"
 
 namespace Gungnir {
 
@@ -55,6 +56,15 @@ struct ConcurrentSkipListTest : public ::testing::Test {
         return rpc;
     }
 
+    TestRpc *scanRpc(uint64_t start, uint64_t end) {
+        auto rpc = new TestRpc();
+        auto reqHdr = rpc->requestPayload.emplaceAppend<WireFormat::Scan::Request>();
+        reqHdr->common.opcode = WireFormat::SCAN;
+        reqHdr->start = start;
+        reqHdr->end = end;
+        return rpc;
+    }
+
     void put(uint64_t key, std::string value) {
         TestRpc *rpc = putRpc(key, value);
         Service *service = Service::dispatch(worker, context, rpc);
@@ -75,11 +85,26 @@ struct ConcurrentSkipListTest : public ::testing::Test {
         return std::string(rpc->replyPayload.getOffset<char>(sizeof(*respHdr)), respHdr->length);
     }
 
-
     TestRpc *erase(uint64_t key) {
         TestRpc *rpc = eraseRpc(key);
         Service *service = Service::dispatch(worker, context, rpc);
         worker->schedule(service);
+        return rpc;
+    }
+
+    TestRpc *scan(uint64_t start, uint64_t end) {
+        TestRpc *rpc = scanRpc(start, end);
+        Service *service = Service::dispatch(worker, context, rpc);
+        worker->schedule(service);
+        return rpc;
+    }
+
+    Iterator *toIterator(TestRpc *rpc) {
+        auto respHdr = rpc->replyPayload.getStart<WireFormat::Scan::Response>();
+        auto iter = new Iterator(&rpc->replyPayload);
+        iter->size = respHdr->size;
+        rpc->replyPayload.truncateFront(sizeof(respHdr));
+        return iter;
     }
 };
 
@@ -127,6 +152,17 @@ TEST_F(ConcurrentSkipListTest, iterate) {
 
     for (int key: insertSequence) {
         orderedSet.insert(key);
+        put(key, "abc");
+    }
+    TestRpc *r = scan(1, 1000);
+    while (!worker->isIdle())
+        worker->performTask();
+
+    auto iterator = toIterator(r);
+    for (uint64_t expected : orderedSet) {
+        uint64_t actual = iterator->getKey();
+        EXPECT_EQ(actual, expected);
+        iterator->next();
     }
 
 }

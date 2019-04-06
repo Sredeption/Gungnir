@@ -22,7 +22,7 @@ void Client::erase(uint64_t key) {
 
 }
 
-Iterator Client::scan(uint64_t startKey, uint64_t lastKey) {
+Iterator Client::scan(uint64_t start, uint64_t end) {
     return Iterator();
 }
 
@@ -76,4 +76,39 @@ void PutRpc::wait() {
     if (respHdr->common.status != STATUS_OK)
         ClientException::throwException(HERE, respHdr->common.status);
 }
+
+EraseRpc::EraseRpc(Client *client, uint64_t key)
+    : RpcWrapper(client->context, client->session, sizeof(WireFormat::Erase::Response)) {
+    WireFormat::Erase::Request *reqHdr(allocHeader<WireFormat::Erase>());
+    reqHdr->key = key;
+    send();
+}
+
+void EraseRpc::wait() {
+    waitInternal(context->dispatch);
+    const WireFormat::Erase::Response *respHdr(
+        getResponseHeader<WireFormat::Erase>());
+    if (respHdr->common.status != STATUS_OK)
+        ClientException::throwException(HERE, respHdr->common.status);
+}
+
+ScanRpc::ScanRpc(Client *client, uint64_t start, uint64_t end, Iterator *iterator)
+    : RpcWrapper(client->context, client->session, sizeof(WireFormat::Scan::Response), iterator->buffer)
+      , iterator(iterator) {
+    WireFormat::Scan::Request *reqHdr(allocHeader<WireFormat::Scan>());
+    reqHdr->start = start;
+    reqHdr->end = end;
+    send();
+}
+
+void ScanRpc::wait() {
+    waitInternal(context->dispatch);
+    const WireFormat::Scan::Response *respHdr(
+        getResponseHeader<WireFormat::Scan>());
+    if (respHdr->common.status != STATUS_OK)
+        ClientException::throwException(HERE, respHdr->common.status);
+    iterator->size = respHdr->size;
+    response->truncateFront(sizeof(*respHdr));
+}
+
 }

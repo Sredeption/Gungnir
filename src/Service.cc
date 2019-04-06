@@ -131,6 +131,9 @@ void PutService::performTask() {
 EraseService::EraseService(Worker *worker, Context *context, Transport::ServerRpc *rpc)
     : Service(worker, context, rpc), state(FIND), nodeToDelete(nullptr), nodeGuard(), isMarked(false), nodeHeight(0)
       , predecessors(), successors(), maxLayer(0), layer() {
+    auto *respHdr = replyPayload->emplaceAppend<WireFormat::Erase::Response>();
+    respHdr->common.status = STATUS_OK;
+
 }
 
 void EraseService::performTask() {
@@ -199,12 +202,60 @@ void EraseService::performTask() {
 }
 
 ScanService::ScanService(Worker *worker, Context *context, Transport::ServerRpc *rpc)
-    : Service(worker, context, rpc) {
+    : Service(worker, context, rpc), state(INIT), current(nullptr), size(0) {
 
-
+    auto *respHdr = replyPayload->emplaceAppend<WireFormat::Scan::Response>();
+    respHdr->common.status = STATUS_OK;
 }
 
 void ScanService::performTask() {
+    auto *reqHdr = requestPayload->getStart<WireFormat::Scan::Request>();
+    Key start(reqHdr->start), end(reqHdr->end);
+    if (state == INIT) {
+        current = skipList->lowerBound(start);
+        state = COLLECT;
+    }
+
+    if (state == COLLECT) {
+        int count = 0;
+        while (count < 100 && current != nullptr && current->getKey().value() <= end.value()) {
+            append(current->getObject());
+            current = current->next();
+            count++;
+            size++;
+        }
+        if (current == nullptr) {
+            state = DONE;
+        } else if (current->getKey().value() > end.value()) {
+            state = DONE;
+        } else {
+            schedule();
+            return;
+        }
+    }
+
+    if (state == DONE) {
+        auto *respHdr = replyPayload->getStart<WireFormat::Scan::Response>();
+        respHdr->size = size;
+    }
+
+}
+
+void ScanService::append(Object *object) {
+    uint64_t key = object->key.value();
+    uint32_t size = object->value.size();
+    uint32_t offset = replyPayload->size();
+    uint32_t bytesNeeded = 12 + size;
+    replyPayload->alloc(bytesNeeded);
+
+    void *ptr;
+    uint32_t contiguous = replyPayload->peek(offset, &ptr);
+    assert(contiguous == bytesNeeded);
+    char *dest = static_cast<char *>(ptr);
+    memcpy(dest, &key, 8);
+    memcpy(dest + 8, &size, 4);
+    char *src = object->value.getStart<char>();
+    memcpy(dest + 12, src, size);
 
 }
 }

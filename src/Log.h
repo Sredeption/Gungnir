@@ -13,7 +13,7 @@ enum LogEntryType {
 };
 
 class LogEntry {
-protected:
+public:
     LogEntryType type;
     Key key;
 

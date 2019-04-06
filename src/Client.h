@@ -43,6 +43,23 @@ public:
     void wait();
 };
 
+class EraseRpc : public RpcWrapper {
+public:
+    EraseRpc(Client *client, uint64_t key);
+
+    void wait();
+};
+
+class ScanRpc : public RpcWrapper {
+public:
+    ScanRpc(Client *client, uint64_t start, uint64_t end, Iterator *iterator);
+
+    void wait();
+
+private:
+    Iterator *iterator;
+};
+
 }
 
 #endif //GUNGNIR_CLIENT_H
