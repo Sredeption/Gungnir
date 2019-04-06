@@ -12,6 +12,7 @@ namespace Gungnir {
 WorkerManager::WorkerManager(Context *context, uint32_t maxCores)
     : Dispatch::Poller(context->dispatch, "WorkerManager")
       , context(context), waitingRpcs(), busyThreads(), idleThreads(), maxCores(maxCores), rpcsWaiting(0) {
+    Logger::log("Max cores number:%d", maxCores);
     for (uint32_t i = 0; i < maxCores; i++) {
         auto *worker = new Worker(context);
         worker->thread = std::make_unique<std::thread>(Worker::workerMain, worker);
@@ -52,6 +53,7 @@ void WorkerManager::handleRpc(Transport::ServerRpc *rpc) {
     if (idleThreads.empty()) {
         waitingRpcs.push(rpc);
         rpcsWaiting++;
+        return;
     }
 
     assert(!idleThreads.empty());
@@ -74,8 +76,14 @@ int WorkerManager::poll() {
     // worker. The order of iteration is crucial, since it allows us to
     // remove a worker from busyThreads in the middle of the loop without
     // interfering with the remaining iterations.
+    int minEpoch = INT32_MAX;
+
     for (int i = static_cast<int>(busyThreads.size()) - 1; i >= 0; i--) {
         Worker *worker = busyThreads[i];
+        int localEpoch = worker->localEpoch.load();
+        if (minEpoch > localEpoch)
+            minEpoch = localEpoch;
+
         assert(worker->busyIndex == i);
         int state = worker->state.load(std::memory_order_acquire);
         if (state == Worker::WORKING) {
@@ -119,6 +127,7 @@ int WorkerManager::poll() {
             idleThreads.push_back(worker);
         }
     }
+    this->minEpoch.store(minEpoch);
     return foundWork;
 }
 

@@ -37,7 +37,8 @@ private:
     std::vector<Worker *> idleThreads;
     uint32_t maxCores;
     int rpcsWaiting;
-
+public:
+    std::atomic<int> minEpoch;
 
 };
 

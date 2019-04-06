@@ -8,9 +8,11 @@ include_directories(src)
 include_directories(cxxopts/include)
 
 set(LIBS pcrecpp pthread)
-set(COMPILE_OPTION -Werror -Wall
+set(COMPILE_OPTION -Wall
         -Wno-non-template-friend -Woverloaded-virtual
         -Wcast-qual -Wcast-align)
+
+set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
 file(GLOB SRC_FILES
         "src/*.h"

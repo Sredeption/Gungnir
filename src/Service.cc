@@ -2,6 +2,7 @@
 #include "ClientException.h"
 #include "Cycles.h"
 #include "Logger.h"
+#include "ConcurrentSkipList.h"
 
 namespace Gungnir {
 
@@ -51,17 +52,12 @@ Service *Service::dispatch(Worker *worker, Context *context, Transport::ServerRp
 
 Service::Service(Worker *worker, Context *context, Transport::ServerRpc *rpc)
     : worker(worker), context(context), requestPayload(&rpc->requestPayload), replyPayload(&rpc->replyPayload) {
+    context->skipList->epoch.load();
 
 }
-
-void Service::Rpc::sendReply() {
-    worker->sendReply();
-}
-
 
 GetService::GetService(Worker *worker, Context *context, Transport::ServerRpc *rpc)
     : Service(worker, context, rpc) {
-
 }
 
 void GetService::performTask() {
@@ -76,12 +72,19 @@ PutService::PutService(Worker *worker, Context *context, Transport::ServerRpc *r
 }
 
 void PutService::performTask() {
-
+    ConcurrentSkipList *skipList = context->skipList;
+    auto *reqHdr = requestPayload->getStart<WireFormat::Put::Request>();
+    Key key(reqHdr->key);
+    skipList->addOrGetData(key);
 }
 
 EraseService::EraseService(Worker *worker, Context *context, Transport::ServerRpc *rpc)
     : Service(worker, context, rpc) {
 
+    ConcurrentSkipList *skipList = context->skipList;
+    auto *reqHdr = requestPayload->getStart<WireFormat::Erase::Request>();
+    Key key(reqHdr->key);
+    skipList->remove(key);
 }
 
 void EraseService::performTask() {
@@ -90,6 +93,7 @@ void EraseService::performTask() {
 
 ScanService::ScanService(Worker *worker, Context *context, Transport::ServerRpc *rpc)
     : Service(worker, context, rpc) {
+
 
 }
 

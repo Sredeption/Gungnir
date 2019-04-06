@@ -12,12 +12,13 @@
 #include "Key.h"
 #include "Value.h"
 #include "SpinLock.h"
+#include "Context.h"
 
 
 namespace Gungnir {
 
 class ConcurrentSkipList {
-private:
+public:
 
     class Node {
         enum : uint16_t {
@@ -87,6 +88,7 @@ private:
 
     };
 
+private:
     class RandomHeight {
     private:
         enum {
@@ -120,6 +122,7 @@ private:
 
     static bool less(const Key &data, const Node *node);
 
+    Context *context;
     std::allocator<std::atomic<Node *>> allocator;
     std::atomic<Node *> head;
     std::atomic<size_t> size;
@@ -139,6 +142,9 @@ private:
     int maxLayer() const;
 
     size_t incrementSize(int delta);
+
+public:
+    std::atomic<int> epoch;
 
     // Returns the node if found, nullptr otherwise.
     Node *find(const Key &key);
@@ -166,6 +172,7 @@ private:
         Node *successors[],
         int *max_layer) const;
 
+private:
     std::pair<Node *, int> findNode(const Key &key) const;
 
     std::pair<Node *, int> findNodeDownRight(const Key &data) const;
@@ -178,7 +185,7 @@ private:
 
 public:
 
-    explicit ConcurrentSkipList(int height = 16);
+    explicit ConcurrentSkipList(Context *context, int height = 16);
 
     class Iterator {
     public:

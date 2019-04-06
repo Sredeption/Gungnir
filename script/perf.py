@@ -4,8 +4,8 @@ import os
 import time
 
 hosts = []
-# numbers = [3, 4, 5, 14, 18, 19]
-numbers = [3, 4]
+# numbers = [4, 20, 2, 3, 5, 6, 14, 15, 16, 18, 19, 21]
+numbers = [4, 20]
 
 for number in numbers:
     hosts.append("10.22.1.%d" % number)
@@ -14,7 +14,7 @@ server_host = hosts[0]
 client_hosts = hosts[1:]
 
 server_binary = "gungnir"
-client_binary = "benchmark"
+client_binary = "benchmark --time 3 --targetOps 20000"
 port = 3000
 
 binary_prefix = "%s/build" % os.getcwd()

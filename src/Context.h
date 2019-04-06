@@ -1,7 +1,6 @@
 #ifndef GUNGNIR_CONTEXT_H
 #define GUNGNIR_CONTEXT_H
 
-#include "OptionConfig.h"
 
 namespace Gungnir {
 
@@ -11,11 +10,20 @@ class WorkerManager;
 
 class Transport;
 
+class ConcurrentSkipList;
+
+class LogCleaner;
+
+class OptionConfig;
+
 class Context {
 public:
     Dispatch *dispatch;
     WorkerManager *workerManager;
     Transport *transport;
+    ConcurrentSkipList *skipList;
+    LogCleaner *logCleaner;
+    OptionConfig *optionConfig;
 
     explicit Context(OptionConfig &optionConfig, bool hasDedicatedDispatchThread);
 

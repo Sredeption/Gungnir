@@ -14,7 +14,8 @@ void Client::get(uint64_t key, Buffer *value, bool *objectExists) {
 }
 
 void Client::put(uint64_t key, const void *buf, uint32_t length) {
-
+    PutRpc rpc(this, key, buf, length);
+    rpc.wait();
 }
 
 void Client::erase(uint64_t key) {

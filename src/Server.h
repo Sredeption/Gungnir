@@ -10,6 +10,8 @@ class Server {
 public:
     explicit Server(Context *context);
 
+    ~Server();
+
     void run();
 private:
     Context *context;

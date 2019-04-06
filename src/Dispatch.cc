@@ -205,7 +205,7 @@ Dispatch::File::File(Dispatch *dispatch, int fd, int events)
  *      The dispatch object on whose behalf this thread is working.
  */
 void Dispatch::epollThreadMain(Dispatch *owner) try {
-#define MAX_EVENTS 10
+#define MAX_EVENTS 20
     struct epoll_event events[MAX_EVENTS];
     while (true) {
         int count = epoll_wait(owner->epollFd, events, MAX_EVENTS, -1);

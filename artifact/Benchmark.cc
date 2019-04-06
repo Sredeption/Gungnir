@@ -80,9 +80,7 @@ public:
     void run(uint64_t seconds) {
         char value[objectSize];
         Buffer buffer;
-        uint32_t choice = std::rand() % 100;
         const uint64_t oneSecond = Cycles::fromSeconds(1);
-
         experimentStartTime = Cycles::rdtsc();
 
         uint64_t opCount = 0;
@@ -93,6 +91,7 @@ public:
             Cycles::sleep(static_cast<uint64_t>((rand() % targetNSPO) / 1000));
         }
         while (true) {
+            uint32_t choice = std::rand() % 100;
             uint64_t start = Cycles::rdtsc();
             SampleType type;
             uint64_t key = zipfianGenerator->nextNumber();

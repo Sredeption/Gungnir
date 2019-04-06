@@ -10,30 +10,6 @@ namespace Gungnir {
 class Service : public Task {
 
 public:
-    class Rpc {
-    public:
-        /**
-         * Constructor for Rpc.
-         */
-        Rpc(Worker *worker, Buffer *requestPayload, Buffer *replyPayload)
-            : requestPayload(requestPayload)
-              , replyPayload(replyPayload)
-              , worker(worker) {}
-
-        void sendReply();
-
-        /// The incoming request, which describes the desired operation.
-        Buffer *requestPayload;
-
-        /// The response, which will eventually be returned to the client.
-        Buffer *replyPayload;
-
-        /// Information about the worker thread that is executing
-        /// this request.
-        Worker *worker;
-
-    };
-
     Service(Worker *worker, Context *context, Transport::ServerRpc *rpc);
 
     static void prepareErrorResponse(Buffer *replyPayload, Status status);
@@ -41,8 +17,7 @@ public:
     static void prepareRetryResponse(
         Buffer *replyPayload, uint32_t minDelayMicros, uint32_t maxDelayMicros, const char *message);
 
-
-    static Service *dispatch(Worker *worker,Context *context, Transport::ServerRpc *rpc);
+    static Service *dispatch(Worker *worker, Context *context, Transport::ServerRpc *rpc);
 
 public:
     Worker *worker;

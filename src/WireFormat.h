@@ -63,6 +63,16 @@ public:
             ResponseCommon common;
         } __attribute__((packed));
     };
+    struct Erase {
+        static const Opcode opcode = ERASE;
+        struct Request {
+            RequestCommon common;
+            uint64_t key;
+        } __attribute__((packed));
+        struct Response {
+            ResponseCommon common;
+        } __attribute__((packed));
+    };
 };
 
 

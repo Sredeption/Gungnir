@@ -1,11 +1,13 @@
 #include <cassert>
 #include "ConcurrentSkipList.h"
+#include "LogCleaner.h"
 
 namespace Gungnir {
 
 ConcurrentSkipList::Node::Node(std::allocator<std::atomic<ConcurrentSkipList::Node *>> &allocator, uint8_t height,
                                Key key, bool isHead)
-    : allocator(allocator), key(std::forward<Key>(key)), value(), flags(), height(height), spinLock("SkipList::Node") {
+    : allocator(allocator), key(std::forward<Key>(key)), value(), flags(), height(height), spinLock("SkipList::Node")
+      , forward() {
     setFlags(0);
     if (isHead) {
         setIsHeadNode();
@@ -18,6 +20,9 @@ ConcurrentSkipList::Node::Node(std::allocator<std::atomic<ConcurrentSkipList::No
 }
 
 ConcurrentSkipList::Node::~Node() {
+    for (int i = 0; i < height; i++) {
+        allocator.destroy(forward + i);
+    }
     allocator.deallocate(forward, height);
 }
 
@@ -179,8 +184,10 @@ ConcurrentSkipList::Node *ConcurrentSkipList::create(uint8_t height, Key key, bo
     return new Node(allocator, height, key, isHead);
 }
 
+
 void ConcurrentSkipList::destroy(ConcurrentSkipList::Node *node) {
-    delete node;
+    int removalEpoch = epoch.fetch_add(1);
+    context->logCleaner->collect(removalEpoch, node);
 }
 
 size_t ConcurrentSkipList::getSize() const {
@@ -299,8 +306,8 @@ bool ConcurrentSkipList::remove(const Key &key) {
     Node *predecessors[MAX_HEIGHT], *successors[MAX_HEIGHT];
 
     while (true) {
-        int max_layer = 0;
-        int layer = findInsertionPointGetMaxLayer(key, predecessors, successors, &max_layer);
+        int maxLayer = 0;
+        int layer = findInsertionPointGetMaxLayer(key, predecessors, successors, &maxLayer);
         if (!isMarked && (layer < 0 || !okToDelete(successors[layer], layer))) {
             return false;
         }
@@ -455,8 +462,8 @@ void ConcurrentSkipList::growHeight(int height) {
 }
 
 
-ConcurrentSkipList::ConcurrentSkipList(int height)
-    : head(create(height, Key(), true)), size(0) {
+ConcurrentSkipList::ConcurrentSkipList(Context *context, int height)
+    : context(), allocator(), head(create(height, Key(), true)), size(0), epoch(0) {
 
 }
 

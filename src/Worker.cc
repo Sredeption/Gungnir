@@ -5,6 +5,7 @@
 #include "ThreadId.h"
 #include "Cycles.h"
 #include "Service.h"
+#include "ConcurrentSkipList.h"
 
 #include <linux/futex.h>
 #include <syscall.h>
@@ -86,6 +87,10 @@ void Worker::sendReply() {
     state.store(POSTPROCESSING, std::memory_order_release);
 }
 
+void Worker::updateEpoch() {
+    localEpoch.store(context->skipList->epoch.load());
+}
+
 int Worker::futexWake(int *addr, int count) {
     return static_cast<int>(syscall(SYS_futex, addr, FUTEX_WAKE, count, NULL, NULL, 0));
 }
@@ -131,6 +136,9 @@ void Worker::workerMain(Worker *worker) {
             }
             if (worker->rpc == WORKER_EXIT)
                 break;
+
+            worker->updateEpoch();
+
             Service *service = Service::dispatch(worker, worker->context, worker->rpc);
             worker->schedule(service);
             while (!worker->isIdle()) {

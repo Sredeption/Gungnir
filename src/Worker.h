@@ -25,6 +25,9 @@ public:
     int threadId;
     WireFormat::Opcode opcode;
     Transport::ServerRpc *rpc;
+    std::atomic<int> localEpoch;
+
+    void updateEpoch();
 
     static int pollMicros;
 
