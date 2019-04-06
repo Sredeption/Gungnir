@@ -129,15 +129,72 @@ void PutService::performTask() {
 }
 
 EraseService::EraseService(Worker *worker, Context *context, Transport::ServerRpc *rpc)
-    : Service(worker, context, rpc) {
-
-    ConcurrentSkipList *skipList = context->skipList;
-    auto *reqHdr = requestPayload->getStart<WireFormat::Erase::Request>();
-    Key key(reqHdr->key);
-    skipList->remove(key);
+    : Service(worker, context, rpc), state(FIND), nodeToDelete(nullptr), nodeGuard(), isMarked(false), nodeHeight(0)
+      , predecessors(), successors(), maxLayer(0), layer() {
 }
 
 void EraseService::performTask() {
+    auto *reqHdr = requestPayload->getStart<WireFormat::Erase::Request>();
+    Key key(reqHdr->key);
+
+    if (state == FIND) {
+        maxLayer = 0;
+        layer = skipList->findInsertionPointGetMaxLayer(key, predecessors, successors, &maxLayer);
+        if (!isMarked && (layer < 0 || !ConcurrentSkipList::okToDelete(successors[layer], layer))) {
+            state = DONE;
+            return;
+        }
+        state = MARK;
+    }
+
+    if (state == MARK) {
+        if (!isMarked) {
+            nodeToDelete = successors[layer];
+            nodeHeight = nodeToDelete->getHeight();
+            nodeGuard = nodeToDelete->tryAcquireGuard();
+            for (int i = 0; i < 10; i++) {
+                if (nodeGuard.owns_lock()) {
+                    break;
+                }
+            }
+            if (!nodeGuard.owns_lock()) {
+                schedule();
+                return;
+            }
+            if (nodeToDelete->markedForRemoval()) {
+                state = DONE;
+                return;
+            }
+            nodeToDelete->setMarkedForRemoval();
+            isMarked = true;
+            nodeGuard.unlock();
+        }
+        state = LOCK;
+    }
+
+    if (state == LOCK) {
+        ConcurrentSkipList::LayerLocker guards;
+        bool locked = false;
+        for (int i = 0; i < 10; i++) {
+            locked = ConcurrentSkipList::tryLockNodesForChange(nodeHeight, guards, predecessors, successors, false);
+            if (locked)
+                break;
+        }
+        if (locked) {
+            for (int k = nodeHeight - 1; k >= 0; --k) {
+                predecessors[k]->setSkip(k, nodeToDelete->skip(k));
+            }
+            state = DELETE;
+        } else {
+            schedule();
+            return;
+        }
+    }
+
+    if (state == DELETE) {
+        skipList->destroy(nodeToDelete);
+        state = DONE;
+    }
 
 }
 

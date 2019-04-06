@@ -58,9 +58,27 @@ private:
 
 class EraseService : public Service {
 public:
+    enum State {
+        FIND,
+        MARK,
+        LOCK,
+        DELETE,
+        DONE
+    };
+
     EraseService(Worker *worker, Context *context, Transport::ServerRpc *rpc);
 
     void performTask() override;
+
+private:
+    State state;
+    ConcurrentSkipList::Node *nodeToDelete;
+    ConcurrentSkipList::ScopedLocker nodeGuard;
+    bool isMarked;
+    int nodeHeight;
+    ConcurrentSkipList::Node *predecessors[MAX_HEIGHT], *successors[MAX_HEIGHT];
+    int maxLayer;
+    int layer;
 };
 
 class ScanService : public Service {

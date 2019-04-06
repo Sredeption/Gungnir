@@ -18,10 +18,10 @@ class TestRpc : public Transport::ServerRpc {
 
 struct ConcurrentSkipListTest : public ::testing::Test {
     Context *context;
-
     Worker *worker;
+    std::string DOESNT_EXISTS;
 
-    ConcurrentSkipListTest() : context(), worker() {
+    ConcurrentSkipListTest() : context(), worker(), DOESNT_EXISTS("DOESNT_EXISTS") {
         context = new Context();
         context->skipList = new ConcurrentSkipList(context);
         context->logCleaner = new LogCleaner(context);
@@ -47,6 +47,14 @@ struct ConcurrentSkipListTest : public ::testing::Test {
         return rpc;
     }
 
+    TestRpc *eraseRpc(uint64_t key) {
+        auto rpc = new TestRpc();
+        auto reqHdr = rpc->requestPayload.emplaceAppend<WireFormat::Erase::Request>();
+        reqHdr->common.opcode = WireFormat::ERASE;
+        reqHdr->key = key;
+        return rpc;
+    }
+
     void put(uint64_t key, std::string value) {
         TestRpc *rpc = putRpc(key, value);
         Service *service = Service::dispatch(worker, context, rpc);
@@ -61,10 +69,18 @@ struct ConcurrentSkipListTest : public ::testing::Test {
     }
 
     std::string getResult(TestRpc *rpc) {
-        auto reqHdr = rpc->replyPayload.getStart<WireFormat::Get::Response>();
-        return std::string(rpc->replyPayload.getOffset<char>(sizeof(*reqHdr)), reqHdr->length);
+        auto respHdr = rpc->replyPayload.getStart<WireFormat::Get::Response>();
+        if (respHdr->common.status == STATUS_OBJECT_DOESNT_EXIST)
+            return DOESNT_EXISTS;
+        return std::string(rpc->replyPayload.getOffset<char>(sizeof(*respHdr)), respHdr->length);
     }
 
+
+    TestRpc *erase(uint64_t key) {
+        TestRpc *rpc = eraseRpc(key);
+        Service *service = Service::dispatch(worker, context, rpc);
+        worker->schedule(service);
+    }
 };
 
 TEST_F(ConcurrentSkipListTest, insertFindRemove) {
@@ -89,7 +105,19 @@ TEST_F(ConcurrentSkipListTest, insertFindRemove) {
     EXPECT_EQ(actual, "ac");
     actual = getResult(r2);
     EXPECT_EQ(actual, "b");
-
+    erase(5);
+    while (!worker->isIdle())
+        worker->performTask();
+    TestRpc *r3 = get(5);
+    while (!worker->isIdle())
+        worker->performTask();
+    actual = getResult(r3);
+    EXPECT_EQ(actual, DOESNT_EXISTS);
+    TestRpc *r4 = get(14);
+    while (!worker->isIdle())
+        worker->performTask();
+    actual = getResult(r4);
+    EXPECT_NE(actual, DOESNT_EXISTS);
 }
 
 TEST_F(ConcurrentSkipListTest, iterate) {

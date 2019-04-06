@@ -338,7 +338,7 @@ bool ConcurrentSkipList::remove(const Key &key) {
         }
 
         // acquire pred locks from bottom layer up
-        ScopedLocker guards[MAX_HEIGHT];
+        LayerLocker guards;
         if (!tryLockNodesForChange(nodeHeight, guards, predecessors, successors, false)) {
             continue; // this will unlock all the locks
         }
