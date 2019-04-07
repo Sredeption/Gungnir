@@ -13,11 +13,19 @@ public:
     Buffer value;
 
     Object(Key key, Buffer *value);
+
+    uint32_t length() override;
+
+    void copyTo(char *dest) override;
 };
 
 class ObjectTombstone : public LogEntry {
 public:
     explicit ObjectTombstone(Key key);
+
+    uint32_t length() override;
+
+    void copyTo(char *dest) override;
 };
 
 }

@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD 14)
 include_directories(src)
 include_directories(cxxopts/include)
 
-set(LIBS pcrecpp pthread)
+set(LIBS pcrecpp pthread rt)
 set(COMPILE_OPTION -Wall
         -Wno-non-template-friend -Woverloaded-virtual
         -Wcast-qual -Wcast-align)

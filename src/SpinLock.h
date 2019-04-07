@@ -24,7 +24,7 @@ namespace Gungnir {
  */
 class SpinLock {
 public:
-    explicit SpinLock(std::string name);
+    explicit SpinLock();
 
     virtual ~SpinLock();
 
@@ -33,10 +33,6 @@ public:
     bool try_lock();
 
     void unlock();
-
-    void setName(std::string name);
-
-    static int numLocks();
 
     /*
      * This class automatically acquires a SpinLock on construction and
@@ -47,11 +43,6 @@ public:
 private:
     /// Implements the lock: False means free, True means locked.
     std::atomic_flag mutex;
-
-    /// Descriptive name for this SpinLock. Used to identify the purpose of
-    /// the lock, what it protects, where it exists in the codebase, etc.
-    /// It is used when the getStatistics() method is invoked.
-    std::string name;
 
     /// Total number of times this lock has been acquired.
     uint64_t acquisitions;

@@ -6,7 +6,7 @@
 namespace Gungnir {
 
 LogCleaner::LogCleaner(Context *context) :
-    context(context), cleaner(), lock("LogCleaner"), minEpoch(-1) {
+    context(context), cleaner(), lock(), minEpoch(-1) {
 
 }
 

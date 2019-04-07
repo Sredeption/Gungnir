@@ -11,19 +11,6 @@ namespace Gungnir {
 /// in existence, so that we can enumerate them to monitor lock contention.
 namespace SpinLockTable {
 /**
- * Returns a structure containing the addresses of all SpinLocks
- * currently in existence.
- *
- * There is a function wrapper around this variable to force
- * initialization before usage. This is relevant when SpinLock is
- * initialized in the constructor of a statically declared object.
- */
-std::unordered_set<SpinLock *> *allLocks() {
-    static std::unordered_set<SpinLock *> map;
-    return &map;
-}
-
-/**
  * This mutex protects the map pointed to by "allLocks()".
  *
  * See the comment above for why this is a function and not a variable.
@@ -37,20 +24,16 @@ std::mutex *lock() {
 /**
  * Construct a new SpinLock and give it the provided name.
  */
-SpinLock::SpinLock(std::string name)
+SpinLock::SpinLock()
     : mutex(false)
-      , name(std::move(name))
       , acquisitions(0)
       , contendedAcquisitions(0)
       , contendedTicks(0)
       , logWaits(false) {
-    std::lock_guard<std::mutex> lock(*SpinLockTable::lock());
-    SpinLockTable::allLocks()->insert(this);
 }
 
 SpinLock::~SpinLock() {
     std::lock_guard<std::mutex> lock(*SpinLockTable::lock());
-    SpinLockTable::allLocks()->erase(this);
 }
 
 /**
@@ -68,8 +51,7 @@ SpinLock::lock() {
             uint64_t now = Cycles::rdtsc();
             if (Cycles::toSeconds(now - startOfContention) > 1.0) {
                 Logger::log(HERE,
-                            "%s SpinLock locked for one second; deadlock?",
-                            name.c_str());
+                            "SpinLock locked for one second; deadlock?");
                 contendedTicks += now - startOfContention;
                 startOfContention = now;
             }
@@ -107,25 +89,4 @@ SpinLock::unlock() {
     mutex.clear(std::memory_order_release);
 }
 
-/**
- * Change the name of the SpinLock. The name is intended to give some hint as
- * to the purpose of the lock, where it was declared, etc.
- *
- * \param name
- *      The string name to give this lock.
- */
-void
-SpinLock::setName(std::string name) {
-    this->name = std::move(name);
-}
-
-/**
- * Return the total of SpinLocks currently in existence; intended
- * primarily for testing.
- */
-int
-SpinLock::numLocks() {
-    std::lock_guard<std::mutex> lock(*SpinLockTable::lock());
-    return static_cast<int>(SpinLockTable::allLocks()->size());
-}
 }
