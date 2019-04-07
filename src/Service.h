@@ -54,6 +54,7 @@ private:
     ConcurrentSkipList::Node *node;
     ConcurrentSkipList::ScopedLocker guard;
     Object *object;
+    uint64_t toOffset;
 };
 
 class EraseService : public Service {
@@ -61,7 +62,8 @@ public:
     enum State {
         FIND,
         MARK,
-        LOCK,
+        WRITE,
+        CHANGE,
         DELETE,
         DONE
     };
@@ -79,6 +81,7 @@ private:
     ConcurrentSkipList::Node *predecessors[MAX_HEIGHT], *successors[MAX_HEIGHT];
     int maxLayer;
     int layer;
+    uint64_t toOffset;
 };
 
 class ScanService : public Service {
@@ -93,7 +96,7 @@ public:
 
     void performTask() override;
 
-    void append(Object* object);
+    void append(Object *object);
 
 private:
     State state;

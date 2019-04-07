@@ -80,7 +80,7 @@ void GetService::performTask() {
 }
 
 PutService::PutService(Worker *worker, Context *context, Transport::ServerRpc *rpc)
-    : Service(worker, context, rpc), state(FIND), node(nullptr), guard(), object(nullptr) {
+    : Service(worker, context, rpc), state(FIND), node(nullptr), guard(), object(nullptr), toOffset(0) {
     auto *respHdr = replyPayload->emplaceAppend<WireFormat::Put::Response>();
     respHdr->common.status = STATUS_OK;
 }
@@ -114,6 +114,9 @@ void PutService::performTask() {
 
             requestPayload->truncateFront(sizeof(*reqHdr));
             object = new Object(key, requestPayload);
+            if (context->log) {
+                toOffset = context->log->append(object);
+            }
             state = WRITE;
         } else {
             schedule();
@@ -121,6 +124,18 @@ void PutService::performTask() {
         }
     }
     if (state == WRITE) {
+        if (context->log != nullptr) {
+            bool synced = false;
+            for (int i = 0; i < 10; i++) {
+                synced = context->log->sync(toOffset);
+                if (synced)
+                    break;
+            }
+            if (!synced) {
+                schedule();
+                return;
+            }
+        }
         Object *old = node->setObject(object);
         skipList->destroy(old);
         guard.unlock();
@@ -130,7 +145,7 @@ void PutService::performTask() {
 
 EraseService::EraseService(Worker *worker, Context *context, Transport::ServerRpc *rpc)
     : Service(worker, context, rpc), state(FIND), nodeToDelete(nullptr), nodeGuard(), isMarked(false), nodeHeight(0)
-      , predecessors(), successors(), maxLayer(0), layer() {
+      , predecessors(), successors(), maxLayer(0), layer(), toOffset(0) {
     auto *respHdr = replyPayload->emplaceAppend<WireFormat::Erase::Response>();
     respHdr->common.status = STATUS_OK;
 
@@ -170,12 +185,33 @@ void EraseService::performTask() {
             }
             nodeToDelete->setMarkedForRemoval();
             isMarked = true;
-            nodeGuard.unlock();
+            state = WRITE;
+            if (context->log) {
+                toOffset = context->log->append(new ObjectTombstone(key));
+            }
+        } else {
+            state = CHANGE;
         }
-        state = LOCK;
     }
 
-    if (state == LOCK) {
+    if (state == WRITE) {
+        if (context->log != nullptr) {
+            bool synced = false;
+            for (int i = 0; i < 10; i++) {
+                synced = context->log->sync(toOffset);
+                if (synced)
+                    break;
+            }
+            if (!synced) {
+                schedule();
+                return;
+            }
+        }
+        nodeGuard.unlock();
+        state = CHANGE;
+    }
+
+    if (state == CHANGE) {
         ConcurrentSkipList::LayerLocker guards;
         bool locked = false;
         for (int i = 0; i < 10; i++) {
