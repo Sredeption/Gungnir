@@ -31,7 +31,9 @@ protected:
 
 class Log {
 public:
-    Log();
+    explicit Log(const char *filePath);
+
+    ~Log();
 
 private:
     static const int SEGMENT_SIZE = 1024 * 1024;
@@ -49,11 +51,14 @@ private:
     };
 
 
+public:
     uint64_t append(LogEntry *entry);
 
     bool sync(uint64_t offset);
 
     bool write();
+
+    LogEntry *read();
 
     Segment *head;
     Segment *tail;
@@ -62,9 +67,10 @@ private:
     SpinLock lock;
 
     int fd;
-    aiocb cbs[10];
     std::unique_ptr<std::thread> writer;
 
+
+    const static int POLL_USEC = 10000;
 
     static void writerThread(Log *log);
 };

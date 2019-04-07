@@ -14,6 +14,8 @@ public:
 
     Object(Key key, Buffer *value);
 
+    Object(Key key, const void *data, uint32_t length);
+
     uint32_t length() override;
 
     void copyTo(char *dest) override;
