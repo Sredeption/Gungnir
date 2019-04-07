@@ -26,7 +26,7 @@ void *Iterator::getValue(uint32_t &length) {
 }
 
 void Iterator::next() {
-    auto *size = buffer->getOffset<uint32_t>(offset + 4);
+    auto *size = buffer->getOffset<uint32_t>(offset + 8);
     offset += 12u + *size;
 }
 

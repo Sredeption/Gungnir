@@ -100,10 +100,10 @@ struct ConcurrentSkipListTest : public ::testing::Test {
     }
 
     Iterator *toIterator(TestRpc *rpc) {
-        auto respHdr = rpc->replyPayload.getStart<WireFormat::Scan::Response>();
+        auto *respHdr = rpc->replyPayload.getStart<WireFormat::Scan::Response>();
+        rpc->replyPayload.truncateFront(sizeof(*respHdr));
         auto iter = new Iterator(&rpc->replyPayload);
         iter->size = respHdr->size;
-        rpc->replyPayload.truncateFront(sizeof(respHdr));
         return iter;
     }
 };
@@ -154,6 +154,13 @@ TEST_F(ConcurrentSkipListTest, iterate) {
         orderedSet.insert(key);
         put(key, "abc");
     }
+    while (!worker->isIdle())
+        worker->performTask();
+
+    orderedSet.erase(23);
+    erase(23);
+    while (!worker->isIdle())
+        worker->performTask();
     TestRpc *r = scan(1, 1000);
     while (!worker->isIdle())
         worker->performTask();
