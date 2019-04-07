@@ -30,8 +30,11 @@ int main(int argc, char *argv[]) {
     Logger::log("client connect to %s", optionConfig.connectLocator.c_str());
     Context context(optionConfig, true);
     Client client(&context, optionConfig.connectLocator);
-    for (int i = 0; i < 20; i++) {
+    for (int i = 0; i < 200; i++) {
         put(client, i, "12");
+    }
+    for (int i = 1000; i < 20000; i++) {
+        put(client, i, std::to_string(i));
     }
     assert(get(client, 12) == "12");
     put(client, 200, "123");
@@ -39,6 +42,21 @@ int main(int argc, char *argv[]) {
     assert(res == "123");
     erase(client, 7);
     assert(get(client, 7) == DOESNT_EXISTS);
+    Iterator iterator = client.scan(2000, 5000);
+    uint64_t key = 2000;
+
+    for (; !iterator.isDone(); iterator.next()) {
+        uint64_t actual = iterator.getKey();
+        uint32_t len;
+        char *content = static_cast<char *>(iterator.getValue(len));
+        assert(key == actual);
+        std::string value = std::string(content, len);
+        assert(value == std::to_string(key));
+        key++;
+    }
+
+    assert(key==5001);
+
     Logger::log("validation finished");
 }
 

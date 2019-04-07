@@ -167,8 +167,12 @@ TEST_F(ConcurrentSkipListTest, iterate) {
 
     auto iterator = toIterator(r);
     for (uint64_t expected : orderedSet) {
-        uint64_t actual = iterator->getKey();
-        EXPECT_EQ(actual, expected);
+        uint64_t actualKey = iterator->getKey();
+        EXPECT_EQ(actualKey, expected);
+        uint32_t len;
+        char *value = static_cast<char *>(iterator->getValue(len));
+        std::string actualValue = std::string(value, len);
+        EXPECT_EQ(actualValue, "abc");
         iterator->next();
     }
 

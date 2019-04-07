@@ -24,7 +24,10 @@ void Client::erase(uint64_t key) {
 }
 
 Iterator Client::scan(uint64_t start, uint64_t end) {
-    return Iterator();
+    Iterator iterator;
+    ScanRpc rpc(this, start, end, &iterator);
+    rpc.wait();
+    return iterator;
 }
 
 GetRpc::GetRpc(Client *client, uint64_t key, Buffer *value)
@@ -94,7 +97,7 @@ void EraseRpc::wait() {
 }
 
 ScanRpc::ScanRpc(Client *client, uint64_t start, uint64_t end, Iterator *iterator)
-    : RpcWrapper(client->context, client->session, sizeof(WireFormat::Scan::Response), iterator->buffer)
+    : RpcWrapper(client->context, client->session, sizeof(WireFormat::Scan::Response), iterator->buffer.get())
       , iterator(iterator) {
     WireFormat::Scan::Request *reqHdr(allocHeader<WireFormat::Scan>());
     reqHdr->start = start;
