@@ -16,9 +16,10 @@ LogEntry::LogEntry(LogEntryType type, Key key)
 
 }
 
-Log::Log(const char *filePath) : head(nullptr), tail(nullptr), appendedLength(0), syncedLength(0), lock(), fd()
-                                 , writer() {
-    head = tail = new Segment();
+Log::Log(const char *filePath, int segmentSize) :
+    head(nullptr), tail(nullptr), segmentSize(segmentSize), appendedLength(0), syncedLength(0), lock(), fd()
+    , writer(), stopWriter(false) {
+    head = tail = new Segment(segmentSize);
     if (::access(filePath, F_OK) != -1) {
 
     } else {
@@ -27,14 +28,24 @@ Log::Log(const char *filePath) : head(nullptr), tail(nullptr), appendedLength(0)
     fd = ::open(filePath, O_CREAT | O_RDWR | O_SYNC, 0666);
     if (fd == -1)
         throw FatalError(HERE, "log file create failed");
+
 }
 
 Log::~Log() {
     ::close(fd);
+    if (writer){
+        stopWriter = true;
+        writer->join();
+    }
 }
 
-Log::Segment::Segment() : data(nullptr), length(0), writeOffset(0), next(nullptr) {
-    data = (char *) std::malloc(SEGMENT_SIZE);
+void Log::startWriter() {
+    stopWriter = false;
+    writer = std::make_unique<std::thread>(writerThread, this);
+}
+
+Log::Segment::Segment(int segmentSize) : data(nullptr), length(0), writeOffset(0), next(nullptr) {
+    data = (char *) std::malloc(segmentSize);
 }
 
 Log::Segment::~Segment() {
@@ -47,8 +58,8 @@ uint64_t Log::append(LogEntry *entry) {
     {
         SpinLock::Guard guard(lock);
         uint32_t entryLength = entry->length();
-        if (tail->length + entryLength > SEGMENT_SIZE) {
-            tail->next = new Segment();
+        if (tail->length + entryLength > segmentSize) {
+            tail->next = new Segment(segmentSize);
             tail = tail->next;
         }
         appendedLength += entryLength;
@@ -77,7 +88,6 @@ bool Log::write() {
         if (head->length > head->writeOffset) {
             buffer = head->data + head->writeOffset;
             length = head->length - head->writeOffset;
-
         }
     }
 
@@ -92,6 +102,7 @@ bool Log::write() {
     {
         SpinLock::Guard guard(lock);
         head->writeOffset += length;
+        syncedLength += length;
 
         if (head != tail && head->writeOffset == head->length) {
             Segment *oldHead = head;
@@ -104,6 +115,8 @@ bool Log::write() {
 
 void Log::writerThread(Log *log) {
     while (true) {
+        if (log->stopWriter)
+            break;
         while (log->write());
         if (!log->write()) {
             useconds_t r = static_cast<useconds_t>(generateRandom() % POLL_USEC) / 10;
@@ -116,7 +129,7 @@ LogEntry *Log::read() {
     LogEntryType type;
     uint64_t key;
     uint32_t len;
-    char buffer[SEGMENT_SIZE];
+    char buffer[200];
     ssize_t ret;
 
     ret = ::read(fd, &type, sizeof(type));

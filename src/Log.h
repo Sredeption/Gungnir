@@ -31,12 +31,13 @@ protected:
 
 class Log {
 public:
-    explicit Log(const char *filePath);
+    explicit Log(const char *filePath, int segmentSize = 1024 * 1024);
 
     ~Log();
 
+    void startWriter();
+
 private:
-    static const int SEGMENT_SIZE = 1024 * 1024;
 
     class Segment {
     public:
@@ -45,7 +46,7 @@ private:
         uint64_t writeOffset;
         Segment *next;
 
-        Segment();
+        Segment(int segmentSize);
 
         ~Segment();
     };
@@ -62,12 +63,14 @@ public:
 
     Segment *head;
     Segment *tail;
+    int segmentSize;
     uint64_t appendedLength;
     uint64_t syncedLength;
     SpinLock lock;
 
     int fd;
     std::unique_ptr<std::thread> writer;
+    bool stopWriter;
 
 
     const static int POLL_USEC = 10000;
