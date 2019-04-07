@@ -16,6 +16,8 @@ class LogCleaner;
 
 class OptionConfig;
 
+class Log;
+
 class Context {
 public:
     Dispatch *dispatch;
@@ -24,6 +26,7 @@ public:
     ConcurrentSkipList *skipList;
     LogCleaner *logCleaner;
     OptionConfig *optionConfig;
+    Log *log;
 
     Context();
 

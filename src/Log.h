@@ -31,7 +31,7 @@ protected:
 
 class Log {
 public:
-    explicit Log(const char *filePath, int segmentSize = 1024 * 1024);
+    explicit Log(const char *filePath, bool recover, int segmentSize = 1024 * 1024);
 
     ~Log();
 

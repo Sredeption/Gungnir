@@ -16,10 +16,13 @@ LogEntry::LogEntry(LogEntryType type, Key key)
 
 }
 
-Log::Log(const char *filePath, int segmentSize) :
+Log::Log(const char *filePath, bool recover, int segmentSize) :
     head(nullptr), tail(nullptr), segmentSize(segmentSize), appendedLength(0), syncedLength(0), lock(), fd()
     , writer(), stopWriter(false) {
     head = tail = new Segment(segmentSize);
+    if (!recover) {
+        ::remove(filePath);
+    }
     if (::access(filePath, F_OK) != -1) {
 
     } else {
@@ -33,7 +36,7 @@ Log::Log(const char *filePath, int segmentSize) :
 
 Log::~Log() {
     ::close(fd);
-    if (writer){
+    if (writer) {
         stopWriter = true;
         writer->join();
     }

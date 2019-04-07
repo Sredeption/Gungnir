@@ -13,7 +13,6 @@ public:
     int segmentSize = 500;
 
     LogTest() : log(nullptr) {
-        ::remove(filePath);
     }
 
 };
@@ -24,7 +23,7 @@ std::string toString(Buffer *buffer) {
 
 
 TEST_F(LogTest, writeAndRead) {
-    log = new Log(filePath, segmentSize);
+    log = new Log(filePath, false, segmentSize);
 
     std::string data;
     for (int i = 0; i < 100; i++) {
@@ -42,7 +41,7 @@ TEST_F(LogTest, writeAndRead) {
     delete log;
 
 
-    log = new Log(filePath, segmentSize);
+    log = new Log(filePath, true, segmentSize);
     for (int i = 0; i < 100; i++) {
         LogEntry *entry = log->read();
         LogEntryType expectType;
@@ -65,7 +64,7 @@ TEST_F(LogTest, writeAndRead) {
 TEST_F(LogTest, writerThread) {
     std::string data;
 
-    log = new Log(filePath, 500);
+    log = new Log(filePath, false, 500);
     log->startWriter();
     uint64_t toOffset = 0;
     for (int i = 0; i < 100; i++) {
@@ -87,7 +86,7 @@ TEST_F(LogTest, writerThread) {
 
     delete log;
 
-    log = new Log(filePath, segmentSize);
+    log = new Log(filePath, true, segmentSize);
     for (int i = 0; i < 100; i++) {
         LogEntry *entry = log->read();
         LogEntryType expectType;

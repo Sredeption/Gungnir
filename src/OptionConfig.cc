@@ -7,7 +7,7 @@ namespace Gungnir {
 OptionConfig::OptionConfig() :
     options("Gungnir", "High performance key value store")
     , serverLocator(), connectLocator(), maxCores(1), readPercent(50), targetOps(1000000), objectCount(10000000)
-    , objectSize(128), time(2) {
+    , objectSize(128), time(2), logFilePath("/tmp/gungnir.log"), recover(false) {
     maxCores = std::max(maxCores, std::thread::hardware_concurrency() / 2);
     options.add_options()
         ("l,listen", "Server listening address", cxxopts::value<std::string>(serverLocator))
@@ -17,7 +17,9 @@ OptionConfig::OptionConfig() :
         ("targetOps", "Target throughput(op/s) of YCSB workload", cxxopts::value<uint64_t>(targetOps))
         ("objectCount", "Maximum object number of YCSB workload", cxxopts::value<uint32_t>(objectCount))
         ("objectSize", "Maximum object size of YCSB workload", cxxopts::value<uint32_t>(objectSize))
-        ("time", "Benchmark time of YCSB workload", cxxopts::value<uint64_t>(time));
+        ("time", "Benchmark time of YCSB workload", cxxopts::value<uint64_t>(time))
+        ("L,logPath", "Log path for gungnir", cxxopts::value<std::string>(logFilePath))
+        ("recover", "Enable gungnir recovery", cxxopts::value<bool>(recover));
 }
 
 void OptionConfig::parse(int argc, char **argv) {

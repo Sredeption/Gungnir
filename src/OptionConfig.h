@@ -23,6 +23,8 @@ public:
     uint32_t objectCount;
     uint32_t objectSize;
     uint64_t time;
+    std::string logFilePath;
+    bool recover;
 };
 
 }
