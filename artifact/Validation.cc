@@ -39,6 +39,7 @@ int main(int argc, char *argv[]) {
     assert(res == "123");
     erase(client, 7);
     assert(get(client, 7) == DOESNT_EXISTS);
+    Logger::log("validation finished");
 }
 
 

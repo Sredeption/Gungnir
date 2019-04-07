@@ -80,15 +80,15 @@ void GetService::performTask() {
 }
 
 PutService::PutService(Worker *worker, Context *context, Transport::ServerRpc *rpc)
-    : Service(worker, context, rpc), state(FIND), node(nullptr), guard(), object(nullptr), toOffset(0) {
+    : Service(worker, context, rpc), state(FIND), key(), node(nullptr), guard(), object(nullptr), toOffset(0) {
     auto *respHdr = replyPayload->emplaceAppend<WireFormat::Put::Response>();
     respHdr->common.status = STATUS_OK;
+    auto *reqHdr = requestPayload->getStart<WireFormat::Put::Request>();
+    key = reqHdr->key;
 }
 
 void PutService::performTask() {
-    auto *reqHdr = requestPayload->getStart<WireFormat::Put::Request>();
 
-    Key key(reqHdr->key);
     if (state == FIND) {
         node = skipList->addOrGetNode(key);
         if (node == nullptr) {
@@ -112,7 +112,7 @@ void PutService::performTask() {
                 return;
             }
 
-            requestPayload->truncateFront(sizeof(*reqHdr));
+            requestPayload->truncateFront(sizeof(WireFormat::Put::Request));
             object = new Object(key, requestPayload);
             if (context->log) {
                 toOffset = context->log->append(object);

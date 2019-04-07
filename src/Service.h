@@ -51,6 +51,7 @@ public:
 
 private:
     State state;
+    Key key;
     ConcurrentSkipList::Node *node;
     ConcurrentSkipList::ScopedLocker guard;
     Object *object;

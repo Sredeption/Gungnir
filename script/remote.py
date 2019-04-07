@@ -15,7 +15,7 @@ class RemoteProcess:
         self.remote = None
 
     def start(self):
-        self.remote = subprocess.Popen(["ssh", self.host, self.command])
+        self.remote = subprocess.Popen(["ssh", self.host, self.command], stdout=open("logs/" + self.host + ".log", "w"))
         print("start binary on %s with %s" % (self.host, self.command))
 
     def kill(self):
