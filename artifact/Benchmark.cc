@@ -91,6 +91,7 @@ public:
             // Randomize start time
             Cycles::sleep(static_cast<uint64_t>((rand() % targetNSPO) / 1000));
         }
+        bool exists;
         while (true) {
             uint32_t choice = std::rand() % 100;
             uint64_t start = Cycles::rdtsc();
@@ -98,7 +99,7 @@ public:
             uint64_t key = zipfianGenerator->nextNumber();
             if (choice < readPercent) {
                 type = GET;
-                client->get(key, &buffer);
+                client->get(key, &buffer, &exists);
             } else {
                 type = PUT;
                 client->put(key, value, objectSize);
