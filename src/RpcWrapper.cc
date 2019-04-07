@@ -12,7 +12,7 @@ RpcWrapper::RpcWrapper(Context *context, Transport::SessionRef session, uint32_t
     : context(context), request(), response(response), defaultResponse(), state(NOT_STARTED)
       , session(std::move(session)), retryTime(0), responseHeaderLength(responseHeaderLength), responseHeader(nullptr) {
     if (response == nullptr) {
-        defaultResponse = std::make_unique<Buffer>();
+        defaultResponse.reset(new Buffer());
         this->response = defaultResponse.get();
     }
 }

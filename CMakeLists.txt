@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.1)
 project(Gungnir)
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 11)
 
 
 include_directories(src)
@@ -12,7 +12,7 @@ set(COMPILE_OPTION -Wall
         -Wno-non-template-friend -Woverloaded-virtual
         -Wcast-qual -Wcast-align)
 
-set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3  -Wl,--no-as-needed ")
 
 file(GLOB SRC_FILES
         "src/*.h"

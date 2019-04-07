@@ -15,7 +15,7 @@ WorkerManager::WorkerManager(Context *context, uint32_t maxCores)
     Logger::log("Max cores number:%d", maxCores);
     for (uint32_t i = 0; i < maxCores; i++) {
         auto *worker = new Worker(context);
-        worker->thread = std::make_unique<std::thread>(Worker::workerMain, worker);
+        worker->thread.reset(new std::thread(Worker::workerMain, worker));
         idleThreads.push_back(worker);
     }
 }

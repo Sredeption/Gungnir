@@ -179,7 +179,7 @@ Dispatch::File::File(Dispatch *dispatch, int fd, int events)
                              "Dispatch couldn't set epoll event for exit pipe",
                              errno);
         }
-        owner->epollThread = std::make_unique<std::thread>(Dispatch::epollThreadMain, owner);
+        owner->epollThread.reset(new std::thread(Dispatch::epollThreadMain, owner));
     }
 
     if (owner->files.size() <= static_cast<uint32_t>(fd)) {
@@ -350,7 +350,7 @@ Dispatch::Lock::Lock(Dispatch *dispatch)
     }
 
     thisThreadHasDispatchLock = true;
-    lock = std::make_unique<std::lock_guard<SpinLock>>(dispatch->mutex);
+    lock.reset(new std::lock_guard<SpinLock>(dispatch->mutex));
 
     // It's possible that when we arrive here the dispatch thread hasn't
     // finished unlocking itself after the previous lock-unlock cycle.

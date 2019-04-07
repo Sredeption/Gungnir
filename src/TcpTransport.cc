@@ -71,7 +71,7 @@ TcpTransport::TcpTransport(Context *context, const std::string &serviceLocator)
     }
 
     // Arrange to be notified whenever anyone connects to listenSocket.
-    acceptHandler = std::make_unique<AcceptHandler>(listenSocket, this);
+    acceptHandler.reset(new AcceptHandler(listenSocket, this));
 }
 
 TcpTransport::~TcpTransport() {
@@ -446,7 +446,7 @@ void TcpTransport::ClientSocketHandler::handleFileEvent(uint32_t events) {
                     session->transport->clientRpcPool.destroy(session->current);
                     session->current = nullptr;
                 }
-                session->message = std::make_unique<IncomingMessage>(static_cast<Buffer *>(nullptr), session);
+                session->message.reset(new IncomingMessage(static_cast<Buffer *>(nullptr), session));
             }
         }
         if (events & Dispatch::FileEvent::WRITABLE) {
@@ -531,8 +531,8 @@ TcpTransport::TcpSession::TcpSession(TcpTransport *transport, const std::string 
 
     /// Arrange for notification whenever the server sends us data.
     Dispatch::Lock lock(transport->context->dispatch);
-    clientIoHandler = std::make_unique<ClientSocketHandler>(fd, this);
-    message = std::make_unique<IncomingMessage>(static_cast<Buffer *>(nullptr), this);
+    clientIoHandler.reset(new ClientSocketHandler(fd, this));
+    message.reset(new IncomingMessage(static_cast<Buffer *>(nullptr), this));
 }
 
 TcpTransport::TcpSession::~TcpSession() {

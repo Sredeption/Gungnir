@@ -11,7 +11,7 @@ LogCleaner::LogCleaner(Context *context) :
 }
 
 void LogCleaner::start() {
-    cleaner = std::make_unique<std::thread>(cleanerThread, this);
+    cleaner.reset(new std::thread(cleanerThread, this));
 }
 
 void LogCleaner::collect(int epoch, ConcurrentSkipList::Node *node) {

@@ -13,7 +13,7 @@ Server::Server(Context *context) :
     context->skipList = new ConcurrentSkipList(context);
     context->workerManager = new WorkerManager(context, context->optionConfig->maxCores);
     context->logCleaner = new LogCleaner(context);
-    context->log = new Log(context->optionConfig->logFilePath.c_str(), context->optionConfig->recover);
+//    context->log = new Log(context->optionConfig->logFilePath.c_str(), context->optionConfig->recover);
 }
 
 Server::~Server() {
@@ -26,7 +26,7 @@ void Server::run() {
     Dispatch &dispatch = *context->dispatch;
 
     context->logCleaner->start();
-    context->log->startWriter();
+//    context->log->startWriter();
 
     dispatch.run();
 }

@@ -23,11 +23,6 @@ Log::Log(const char *filePath, bool recover, int segmentSize) :
     if (!recover) {
         ::remove(filePath);
     }
-    if (::access(filePath, F_OK) != -1) {
-
-    } else {
-
-    }
     fd = ::open(filePath, O_CREAT | O_RDWR | O_SYNC, 0666);
     if (fd == -1)
         throw FatalError(HERE, "log file create failed");
@@ -44,7 +39,7 @@ Log::~Log() {
 
 void Log::startWriter() {
     stopWriter = false;
-    writer = std::make_unique<std::thread>(writerThread, this);
+    writer.reset(new std::thread(writerThread, this));
 }
 
 Log::Segment::Segment(int segmentSize) : data(nullptr), length(0), writeOffset(0), next(nullptr) {
@@ -77,7 +72,8 @@ uint64_t Log::append(LogEntry *entry) {
 }
 
 bool Log::sync(uint64_t toOffset) {
-    return toOffset <= syncedLength;
+    SpinLock::Guard guard(lock);
+    return toOffset <= syncedLength.load();
 }
 
 bool Log::write() {
@@ -105,7 +101,7 @@ bool Log::write() {
     {
         SpinLock::Guard guard(lock);
         head->writeOffset += length;
-        syncedLength += length;
+        syncedLength.fetch_add(length);
 
         if (head != tail && head->writeOffset == head->length) {
             Segment *oldHead = head;

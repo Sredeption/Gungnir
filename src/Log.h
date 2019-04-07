@@ -4,6 +4,7 @@
 #include <aio.h>
 #include <memory>
 #include <thread>
+#include <atomic>
 
 #include "Key.h"
 #include "SpinLock.h"
@@ -65,7 +66,7 @@ public:
     Segment *tail;
     int segmentSize;
     uint64_t appendedLength;
-    uint64_t syncedLength;
+    std::atomic<uint64_t> syncedLength;
     SpinLock lock;
 
     int fd;
