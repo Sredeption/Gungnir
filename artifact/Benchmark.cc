@@ -3,6 +3,7 @@
 #include <cmath>
 #include <Cycles.h>
 #include <vector>
+#include <OptionConfig.h>
 
 using namespace Gungnir;
 

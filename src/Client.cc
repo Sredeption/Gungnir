@@ -19,7 +19,8 @@ void Client::put(uint64_t key, const void *buf, uint32_t length) {
 }
 
 void Client::erase(uint64_t key) {
-
+    EraseRpc rpc(this, key);
+    rpc.wait();
 }
 
 Iterator Client::scan(uint64_t start, uint64_t end) {

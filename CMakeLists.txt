@@ -28,6 +28,10 @@ add_executable(benchmark ${SRC_FILES} artifact/Benchmark.cc)
 target_link_libraries(benchmark  ${LIBS})
 target_compile_options(benchmark   PRIVATE ${COMPILE_OPTION})
 
+add_executable(validation ${SRC_FILES} artifact/Validation.cc)
+target_link_libraries(validation ${LIBS})
+target_compile_options(validation PRIVATE ${COMPILE_OPTION})
+
 file(GLOB TEST_FILES
         "test/*.h"
         "test/*.cc"
